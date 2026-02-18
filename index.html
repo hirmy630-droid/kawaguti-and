@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>距離計算</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #111827; }
+        
+        /* 入力枠のデザイン調整 */
+        input[type="text"], select {
+            font-size: 1.1rem;
+            background-color: #0f172a !important;
+            color: #f3f4f6;
+            border-color: #374151;
+            transition: all 0.2s;
+            height: 2.75rem !important;
+        }
+
+        input:focus, select:focus {
+            border-color: #3b82f6 !important;
+            background-color: #1e293b !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-start justify-center p-4">
+
+    <div class="bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700 mt-4">
+        <h1 class="text-2xl font-bold text-center text-white">距離計算</h1>
+        <div class="text-sm font-medium text-gray-400 text-center mb-8 mt-1 uppercase tracking-widest">KYOWA ROOF</div>
+
+        <div class="space-y-6">
+            <!-- 1行目: 並行距離 と 足長 -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">並行距離</label>
+                    <input type="text" id="inputH" placeholder="0" inputmode="numeric"
+                           oninput="handleInputFormat(this)" 
+                           onfocus="this.select()"
+                           onkeydown="moveFocus(event, 'inputB')"
+                           class="w-full p-2 border-2 rounded-lg focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">足長</label>
+                    <input type="text" id="inputB" placeholder="0" inputmode="numeric"
+                           oninput="handleInputFormat(this)" 
+                           onfocus="this.select()"
+                           onkeydown="moveFocus(event, 'selectX')"
+                           class="w-full p-2 border-2 rounded-lg focus:outline-none">
+                </div>
+            </div>
+
+            <!-- 2行目: 選択(1) と 寸法(2) -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">選択</label>
+                    <select id="selectX" 
+                            onchange="autoCalculate()" 
+                            onkeydown="moveFocus(event, 'inputA')"
+                            class="w-full px-2 border-2 rounded-lg focus:outline-none bg-gray-900 text-gray-100">
+                        <option value="45">75</option>
+                        <option value="57">100</option>
+                        <option value="70">125</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">寸法</label>
+                    <input type="text" id="inputA" placeholder="0" inputmode="numeric"
+                           oninput="handleInputFormat(this)" 
+                           onfocus="this.select()"
+                           onkeydown="finishAtA(event)"
+                           class="w-full p-2 border-2 rounded-lg focus:outline-none">
+                </div>
+            </div>
+
+            <!-- 結果表示エリア -->
+            <div class="p-4 bg-gray-900 rounded-xl border-t-4 border-blue-600 shadow-inner">
+                <div class="flex justify-between items-center px-2">
+                    <p class="text-sm text-gray-300 font-bold tracking-wider uppercase">計算結果</p>
+                    <p id="resultC" class="text-xl font-black text-blue-400">---</p>
+                </div>
+            </div>
+
+            <!-- 操作ボタン -->
+            <div class="grid grid-cols-4 gap-4">
+                <button onclick="clearAll()" class="col-span-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-2 rounded-xl transition-all active:scale-95 border border-gray-600 text-sm">
+                    クリア
+                </button>
+                <button id="saveBtn" onclick="saveToHistory()" class="col-span-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl shadow-lg transition-all active:scale-95 text-center text-sm">
+                    履歴保存
+                </button>
+            </div>
+
+            <!-- 履歴リスト -->
+            <div id="historySection" class="hidden mt-4 border-t border-gray-700 pt-4">
+                <p class="text-xs text-gray-400 font-bold mb-2 uppercase tracking-widest">保存履歴</p>
+                <div id="historyList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let currentUser = null;
+
+        // 数値をカンマ区切りにする
+        window.formatNum = (val) => {
+            if (val === "" || val === null || val === undefined) return "";
+            const numStr = val.toString().replace(/,/g, '');
+            const num = parseFloat(numStr);
+            return isNaN(num) ? val : num.toLocaleString();
+        };
+
+        // カンマを除去して数値のみにする
+        window.stripCommas = (val) => {
+            return val.toString().replace(/,/g, '');
+        };
+
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                loadHistory(user.uid);
+            }
+        });
+
+        function loadHistory(uid) {
+            const historyPath = collection(db, 'artifacts', appId, 'users', uid, 'history');
+            onSnapshot(historyPath, (snapshot) => {
+                const historyList = document.getElementById('historyList');
+                const historySection = document.getElementById('historySection');
+                
+                if (snapshot.empty) {
+                    historySection.classList.add('hidden');
+                    return;
+                }
+                
+                historySection.classList.remove('hidden');
+                historyList.innerHTML = "";
+
+                const docs = snapshot.docs.map(d => ({id: d.id, ...d.data()}))
+                                        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+                docs.forEach(data => {
+                    const item = document.createElement('div');
+                    item.className = "bg-gray-700/40 p-3 rounded-lg flex justify-between items-center border border-gray-700";
+                    item.innerHTML = `
+                        <div class="text-gray-200">
+                            <div class="text-xs text-gray-400">H:${formatNum(data.h)} B:${formatNum(data.b)} X:${data.x} A:${formatNum(data.a)}</div>
+                            <div class="font-black text-blue-300 text-lg">結果=${formatNum(data.result)}</div>
+                        </div>
+                        <button class="del-btn text-gray-500 hover:text-red-400 p-1" data-id="${data.id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    `;
+                    item.querySelector('.del-btn').onclick = () => deleteHistory(data.id);
+                    historyList.appendChild(item);
+                });
+            }, (err) => console.error("Firestore error:", err));
+        }
+
+        window.saveToHistory = async () => {
+            if (!currentUser) return;
+            const result = stripCommas(document.getElementById('resultC').innerText);
+            if (result === "---" || result === "エラー") return;
+
+            const h = stripCommas(document.getElementById('inputH').value);
+            const b = stripCommas(document.getElementById('inputB').value);
+            const a = stripCommas(document.getElementById('inputA').value);
+            const x = document.getElementById('selectX').options[document.getElementById('selectX').selectedIndex].text;
+
+            try {
+                const historyPath = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
+                await addDoc(historyPath, {
+                    h, b, a, x, result,
+                    createdAt: serverTimestamp()
+                });
+            } catch (e) {
+                console.error("Save error", e);
+            }
+        };
+
+        async function deleteHistory(id) {
+            if (!currentUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'history', id);
+            await deleteDoc(docRef);
+        }
+    </script>
+
+    <script>
+        // 入力時にカンマ形式にする
+        function handleInputFormat(el) {
+            let cursor = el.selectionStart;
+            let oldLen = el.value.length;
+            
+            let val = el.value.replace(/,/g, '');
+            if (!isNaN(val) && val !== "") {
+                el.value = Number(val).toLocaleString();
+            } else if (val === "") {
+                el.value = "";
+            }
+            
+            // カーソル位置の調整
+            let newLen = el.value.length;
+            el.setSelectionRange(cursor + (newLen - oldLen), cursor + (newLen - oldLen));
+            
+            autoCalculate();
+        }
+
+        function moveFocus(e, nextId) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById(nextId).focus();
+            }
+        }
+
+        function finishAtA(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                autoCalculate();
+                document.getElementById('saveBtn').click();
+                document.getElementById('inputH').focus();
+            }
+        }
+
+        function autoCalculate() {
+            const hRaw = document.getElementById('inputH').value.replace(/,/g, '');
+            const bRaw = document.getElementById('inputB').value.replace(/,/g, '');
+            const aRaw = document.getElementById('inputA').value.replace(/,/g, '');
+            const xVal = parseFloat(document.getElementById('selectX').value);
+            const resultElement = document.getElementById('resultC');
+
+            if (hRaw === "" || bRaw === "" || aRaw === "") {
+                resultElement.innerText = "---";
+                return;
+            }
+
+            const h = parseFloat(hRaw);
+            const bBase = parseFloat(bRaw);
+            const a = parseFloat(aRaw);
+            const bCalc = bBase + xVal;
+
+            const cSquared = (a * a) + (bCalc * bCalc) - (2 * bCalc * h);
+
+            if (cSquared < 0) {
+                resultElement.innerText = "エラー";
+            } else {
+                const c = Math.sqrt(cSquared);
+                const finalC = Math.ceil(c);
+                resultElement.innerText = finalC.toLocaleString();
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('inputH').value = "";
+            document.getElementById('inputB').value = "";
+            document.getElementById('inputA').value = "";
+            document.getElementById('resultC').innerText = "---";
+            document.getElementById('inputH').focus();
+        }
+    </script>
+</body>
+</html>
