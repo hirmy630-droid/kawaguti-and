@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quantity-calc-pwa-20260404-02';
+const CACHE_NAME = 'quantity-calc-pwa-9b0b0abb5dfd';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -9,30 +9,20 @@ const CORE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      for (const asset of CORE_ASSETS) {
-        try {
-          await cache.add(asset);
-        } catch (e) {
-          // アイコン未配置でも install を失敗させない
-          console.warn('Cache add skipped:', asset);
-        }
-      }
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).catch(() => Promise.resolve())
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    ).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => {
+      if (key !== CACHE_NAME) return caches.delete(key);
+    }));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
@@ -41,35 +31,35 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // 同一オリジンだけ処理
-  if (url.origin !== self.location.origin) return;
-
-  // HTML / 画面遷移は常に新しいものを優先
-  const isNavigation = request.mode === 'navigate' ||
-    (request.headers.get('accept') || '').includes('text/html');
-
-  if (isNavigation) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy));
-          return response;
-        })
-        .catch(() => caches.match(request).then((r) => r || caches.match('./index.html')))
-    );
+  // navigation requests: always prefer network to avoid stale index.html
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(request, { cache: 'no-store' });
+        const cache = await caches.open(CACHE_NAME);
+        cache.put('./index.html', fresh.clone());
+        return fresh;
+      } catch (error) {
+        const cached = await caches.match('./index.html');
+        return cached || Response.error();
+      }
+    })());
     return;
   }
 
-  // それ以外はキャッシュ優先、なければネット取得して更新
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+  // same-origin static files: stale-while-revalidate
+  if (url.origin === self.location.origin) {
+    event.respondWith((async () => {
+      const cached = await caches.match(request);
+      const fetchPromise = fetch(request).then(async (response) => {
+        if (response && response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(request, response.clone());
+        }
         return response;
-      });
-    })
-  );
+      }).catch(() => null);
+
+      return cached || await fetchPromise || Response.error();
+    })());
+  }
 });
