@@ -202,20 +202,41 @@
     .part-name-row { display: flex; gap: 8px; align-items: center; }
     .part-name-row .text-wrap { flex: 1; } /* 入力欄を余白の分だけ広げる */
 
-    .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-    .modal-overlay.show { display: flex; }
-    .modal-content { background: var(--panel); width: 100%; max-width: 520px; border-radius: 20px 20px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.5); animation: slideUp 0.2s ease-out; }
-    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    .modal-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; padding: 0 4px; }
-    .modal-result-wrap { display: flex; align-items: baseline; gap: 8px; }
-    .modal-total { font-size: 26px; font-weight: 600; color: var(--accent); letter-spacing: .02em; }
-    .modal-temp { font-size: 26px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 1000;
+      background: rgba(0,0,0,0.01);
+    }
+    .modal-overlay.show { display: block; }
+    .modal-content {
+      position: fixed;
+      left: 8px;
+      top: 8px;
+      width: min(288px, calc(100vw - 16px));
+      background: var(--panel);
+      border: 1px solid var(--line2);
+      border-radius: 16px;
+      padding: 10px;
+      box-shadow: 0 14px 36px rgba(0,0,0,.48);
+      animation: keypadPop .14s ease-out;
+      transform-origin: top center;
+    }
+    @keyframes keypadPop {
+      from { opacity: 0; transform: scale(.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; padding: 0 2px; }
+    .modal-result-wrap { display: flex; align-items: baseline; gap: 6px; }
+    .modal-total { font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
+    .modal-temp { font-size: 20px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
 
-    .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-    .key { min-height: 54px; border-radius: 10px; background: var(--btn); color: #fff; font-size: 20px; font-weight: 800; }
-    .key.gray { background: var(--btn2); font-size: 15px; }
+    .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+    .key { min-height: 44px; border-radius: 9px; background: var(--btn); color: #fff; font-size: 18px; font-weight: 800; }
+    .key.gray { background: var(--btn2); font-size: 13px; }
     .key.orange { background: var(--accent); }
-    .key.span2 { grid-row: span 2; min-height: 112px; }
+    .key.span2 { grid-row: span 2; min-height: 91px; }
     .key.add-action-key { background: var(--btn); border: 2px solid var(--accent); }
 
     .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1010; background: var(--success); color: #fff; font-weight: 800; padding: 12px 18px; border-radius: 999px; box-shadow: var(--shadow); display: none; white-space: nowrap; }
@@ -227,8 +248,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="数量計算" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./icon-180.png" />
 
 </head>
 <body>
@@ -323,6 +344,7 @@
       };
 
       let forceScrollTo = null;
+      let keypadAnchorPoint = null;
 
       const el = {
         paneQuantity: document.getElementById('pane-quantity'),
@@ -331,6 +353,7 @@
         paneData: document.getElementById('pane-data-content'),
         toast: document.getElementById('toast'),
         modalKeypad: document.getElementById('modalKeypad'),
+        modalContent: document.querySelector('#modalKeypad .modal-content'),
         modalKeypadContainer: document.getElementById('modalKeypadContainer'),
         modalDisplayTotal: document.getElementById('modalDisplayTotal'),
         modalDisplayTemp: document.getElementById('modalDisplayTemp'),
@@ -362,19 +385,90 @@
 
       function setActiveTab(tab) {
         state.activeTab = tab;
-        state.focusedInput = '';
+        closeKeypad();
         saveState();
         render();
       }
 
-      function setFocusedInput(id) {
+      function closeKeypad() {
+        el.modalKeypad.classList.remove('show');
+        state.focusedInput = '';
+        keypadAnchorPoint = null;
+      }
+
+      function getAnchorPointFromEvent(evt, fallbackEl = null) {
+        if (evt) {
+          if (evt.changedTouches && evt.changedTouches.length) {
+            return { x: evt.changedTouches[0].clientX, y: evt.changedTouches[0].clientY };
+          }
+          if (evt.touches && evt.touches.length) {
+            return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+          }
+          if (typeof evt.clientX === 'number' && typeof evt.clientY === 'number') {
+            return { x: evt.clientX, y: evt.clientY };
+          }
+        }
+        if (fallbackEl) {
+          const rect = fallbackEl.getBoundingClientRect();
+          return { x: rect.left + (rect.width / 2), y: rect.top + (rect.height / 2) };
+        }
+        return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      }
+
+      function positionFloatingKeypad() {
+        if (!el.modalKeypad.classList.contains('show')) return;
+
+        const modal = el.modalContent;
+        const margin = 8;
+        const gap = 10;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        const modalWidth = modal.offsetWidth || 288;
+        const modalHeight = modal.offsetHeight || 230;
+
+        let left = (viewportWidth - modalWidth) / 2;
+        let top = Math.max(margin, viewportHeight - modalHeight - margin);
+
+        if (keypadAnchorPoint) {
+          left = keypadAnchorPoint.x - (modalWidth / 2);
+
+          const preferBelow = keypadAnchorPoint.y + gap;
+          const preferAbove = keypadAnchorPoint.y - modalHeight - gap;
+
+          if (preferBelow + modalHeight <= viewportHeight - margin) {
+            top = preferBelow;
+          } else if (preferAbove >= margin) {
+            top = preferAbove;
+          } else {
+            top = Math.max(margin, Math.min(preferBelow, viewportHeight - modalHeight - margin));
+          }
+        }
+
+        left = Math.max(margin, Math.min(left, viewportWidth - modalWidth - margin));
+        top = Math.max(margin, Math.min(top, viewportHeight - modalHeight - margin));
+
+        modal.style.left = left + 'px';
+        modal.style.top = top + 'px';
+      }
+
+      function openKeypad(anchorPoint = null) {
+        keypadAnchorPoint = anchorPoint;
+        el.modalKeypadContainer.innerHTML = renderKeypadHTML();
+        el.modalKeypad.classList.add('show');
+        bindModalKeypadEvents();
+        updateModalDisplay();
+        requestAnimationFrame(positionFloatingKeypad);
+      }
+
+      function setFocusedInput(id, evt = null, fallbackEl = null) {
         state.focusedInput = id || '';
         if (state.focusedInput && state.focusedInput !== 'memo') {
           state.tempModalVal = '0';
-          updateModalDisplay();
-          el.modalKeypadContainer.innerHTML = renderKeypadHTML();
-          el.modalKeypad.classList.add('show');
-          bindModalKeypadEvents();
+          const anchorPoint = getAnchorPointFromEvent(evt, fallbackEl);
+          render();
+          openKeypad(anchorPoint);
+          return;
         }
         render();
       }
@@ -455,11 +549,13 @@
           </div>
         `;
         
-        document.getElementById('qtyVal1Row').onclick = () => setFocusedInput('val1');
-        document.getElementById('qtyVal2Row').onclick = () => setFocusedInput('val2');
+        const qtyVal1Row = document.getElementById('qtyVal1Row');
+        qtyVal1Row.onclick = (e) => setFocusedInput('val1', e, qtyVal1Row);
+        const qtyVal2Row = document.getElementById('qtyVal2Row');
+        qtyVal2Row.onclick = (e) => setFocusedInput('val2', e, qtyVal2Row);
         const mi = document.getElementById('qtyMemoInput');
         mi.oninput = (e) => { state.qtyMemo = e.target.value; saveState(); };
-        mi.onfocus = () => { state.focusedInput = 'memo'; };
+        mi.onfocus = () => { closeKeypad(); state.focusedInput = 'memo'; };
 
         document.getElementById('saveQtyBtn').onclick = () => {
           if (v2 <= 0) { showToast('数値を正しく入力してください'); return; }
@@ -517,7 +613,9 @@
           state.projectSets = state.projectSets.map(x => x.id === s.dataset.sid ? { ...x, items: x.items.map(i => i.id === s.dataset.iid ? { ...i, partName: e.target.value } : i) } : x);
           saveState(); render();
         });
-        el.paneParts.querySelectorAll('[data-qty-focus]').forEach(n => n.onclick = () => setFocusedInput(n.dataset.qtyFocus));
+        el.paneParts.querySelectorAll('[data-qty-focus]').forEach(n => {
+          n.onclick = (e) => setFocusedInput(n.dataset.qtyFocus, e, n);
+        });
         el.paneParts.querySelectorAll('[data-del-set]').forEach(b => b.onclick = () => { state.projectSets = state.projectSets.filter(s => s.id !== b.dataset.delSet); saveState(); render(); });
         el.paneParts.querySelectorAll('[data-add-row]').forEach(b => b.onclick = () => {
           state.projectSets = state.projectSets.map(s => s.id === b.dataset.addRow ? {...s, items:[...s.items,{id:uid('i'),partName:'',quantity:''}]} : s);
@@ -626,11 +724,10 @@
         c.querySelector('[data-a="c"]').onclick = handleClear;
         c.querySelector('[data-a="ac"]').onclick = handleAllClear;
         c.querySelector('[data-a="add"]').onclick = executeModalAdd;
-        c.querySelector('[data-a="done"]').onclick = () => { 
-          executeModalAdd(); 
-          el.modalKeypad.classList.remove('show'); 
-          state.focusedInput=''; 
-          render(); 
+        c.querySelector('[data-a="done"]').onclick = () => {
+          executeModalAdd();
+          closeKeypad();
+          render();
         };
       }
 
@@ -706,6 +803,25 @@
         }
       }, { passive: true });
 
+      el.modalKeypad.addEventListener('click', (e) => {
+        if (e.target === el.modalKeypad) {
+          closeKeypad();
+          render();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        if (el.modalKeypad.classList.contains('show')) {
+          positionFloatingKeypad();
+        }
+      });
+
+      window.addEventListener('orientationchange', () => {
+        if (el.modalKeypad.classList.contains('show')) {
+          positionFloatingKeypad();
+        }
+      });
+
       el.tabs.forEach(b => b.onclick = () => setActiveTab(b.dataset.tab));
       loadState();
       render();
@@ -714,19 +830,10 @@
 
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', async () => {
-        try {
-          const reg = await navigator.serviceWorker.register('./sw.js');
-          reg.update();
-          let refreshing = false;
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (refreshing) return;
-            refreshing = true;
-            window.location.reload();
-          });
-        } catch (e) {
-          console.error('Service Worker registration failed:', e);
-        }
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch((error) => {
+          console.error('Service Worker registration failed:', error);
+        });
       });
     }
   </script>
