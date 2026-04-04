@@ -1,56 +1,73 @@
-const CACHE_NAME = 'quantity-calc-pwa-v1';
-const APP_SHELL = [
+const CACHE_NAME = 'quantity-calc-pwa-20260404-02';
+const CORE_ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const asset of CORE_ASSETS) {
+        try {
+          await cache.add(asset);
+        } catch (e) {
+          // アイコン未配置でも install を失敗させない
+          console.warn('Cache add skipped:', asset);
+        }
+      }
+    }).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(
+    caches.keys().then((keys) =>
+      Promise.all(
         keys
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
-      ))
-      .then(() => self.clients.claim())
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+  if (request.method !== 'GET') return;
 
-  const requestUrl = new URL(event.request.url);
-  if (requestUrl.origin !== self.location.origin) return;
+  const url = new URL(request.url);
 
-  if (event.request.mode === 'navigate') {
+  // 同一オリジンだけ処理
+  if (url.origin !== self.location.origin) return;
+
+  // HTML / 画面遷移は常に新しいものを優先
+  const isNavigation = request.mode === 'navigate' ||
+    (request.headers.get('accept') || '').includes('text/html');
+
+  if (isNavigation) {
     event.respondWith(
-      fetch(event.request)
+      fetch(request)
         .then((response) => {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy));
           return response;
         })
-        .catch(() => caches.match('./index.html'))
+        .catch(() => caches.match(request).then((r) => r || caches.match('./index.html')))
     );
     return;
   }
 
+  // それ以外はキャッシュ優先、なければネット取得して更新
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      return fetch(event.request).then((response) => {
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((response) => {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
       });
     })

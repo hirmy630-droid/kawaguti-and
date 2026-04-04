@@ -4,16 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>数量計算 - iPad横画面対応版</title>
-<link rel="manifest" href="./manifest.json" />
-<meta name="theme-color" content="#000000" />
-<meta name="background-color" content="#000000" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="数量計算" />
-<link rel="apple-touch-icon" href="./icon-180.png" />
-<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
-<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
   <style>
     :root {
       --bg: #000000;
@@ -83,7 +73,7 @@
     .single-page {
       flex-direction: column;
       padding: 12px 16px 0;
-      max-width: 600px;
+      max-width: 1200px; /* 最大幅を600pxから1200pxに広げて画面を有効活用 */
       margin: 0 auto;
       width: 100%;
     }
@@ -202,7 +192,8 @@
     .row-add-btn, .outline-btn { border: 1px dashed var(--line2); color: var(--muted); background: rgba(255,255,255,.02); width: 100%; }
     .primary-btn { background: var(--accent); color: #fff; width: 100%; }
 
-    .master-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
+    /* 画面幅に合わせて自動的に列数が変わるように修正 */
+    .master-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; align-items: start; }
     .master-card { display: flex; flex-direction: column; gap: 8px; }
     .master-head { display: flex; gap: 8px; align-items: center; }
     .master-subtitle { font-size: 13px; color: var(--muted2); font-weight: 700; }
@@ -228,6 +219,12 @@
     .toast.show { display: block; }
     .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   </style>
+<meta name="theme-color" content="#000000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="数量計算" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="apple-touch-icon" href="./icon-180.png" />
 </head>
 <body>
   <div class="app">
@@ -676,9 +673,9 @@
   </script>
 <script>
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch((error) => {
-        console.error('Service Worker registration failed:', error);
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function (err) {
+        console.error('Service Worker registration failed:', err);
       });
     });
   }

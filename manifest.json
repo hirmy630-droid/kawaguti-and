@@ -1,13 +1,14 @@
 {
   "name": "数量計算",
   "short_name": "数量計算",
-  "description": "数量計算と部材ピックアップを行うPWA",
+  "description": "数量計算PWA",
   "lang": "ja",
-  "display": "standalone",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
-  "theme_color": "#000000",
+  "display": "standalone",
   "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "any",
   "icons": [
     {
       "src": "./icon-180.png",
@@ -18,13 +19,13 @@
       "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
