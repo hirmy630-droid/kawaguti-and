@@ -1,284 +1,688 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>距離計算</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #111827; }
-        
-        /* 入力枠のデザイン調整 */
-        input[type="text"], select {
-            font-size: 1.1rem;
-            background-color: #0f172a !important;
-            color: #f3f4f6;
-            border-color: #374151;
-            transition: all 0.2s;
-            height: 2.75rem !important;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>数量計算 - iPad横画面対応版</title>
+<link rel="manifest" href="./manifest.json" />
+<meta name="theme-color" content="#000000" />
+<meta name="background-color" content="#000000" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="数量計算" />
+<link rel="apple-touch-icon" href="./icon-180.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: #1c1c1e;
+      --panel2: #2c2c2e;
+      --line: #38383a;
+      --line2: #636366;
+      --text: #ffffff;
+      --muted: #aeaeb2;
+      --muted2: #8e8e93;
+      --accent: #ff9f0a;
+      --success: #30d158;
+      --btn: #3a3a3c;
+      --btn2: #7c7c7e;
+      --shadow: 0 8px 24px rgba(0,0,0,.35);
+      --radius: 14px;
+      --overlay: rgba(0,0,0,0.7);
+    }
 
-        input:focus, select:focus {
-            border-color: #3b82f6 !important;
-            background-color: #1e293b !important;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-        }
-    </style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      overflow: hidden;
+    }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { border: 0; background: none; padding: 0; cursor: pointer; }
+    select, input, textarea { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); min-width: 0; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .app { height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
+    .topbar { padding: max(10px, env(safe-area-inset-top)) 16px 8px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+    .title { font-size: 20px; font-weight: 700; }
+    .brand { font-size: 14px; font-weight: 600; color: #d1d1d6; white-space: nowrap; }
+
+    .tabs-wrap { padding: 0 16px 8px; }
+    .tabs { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; height: 42px; max-width: 400px; }
+    .tab { flex: 1; border-radius: 9px; color: var(--muted2); font-weight: 700; font-size: 14px; }
+    .tab.active { background: var(--btn); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+
+    /* メインコンテンツエリア */
+    .content {
+      position: relative;
+      flex: 1;
+      min-height: 0; /* 安全装置: コンテンツが画面外に押し出されるのを防ぐ */
+    }
+    .page {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: none;
+    }
+    .page.active { display: flex; }
+
+    /* iPad用 左右分割レイアウト */
+    .split-page {
+      flex-direction: row;
+      gap: 20px;
+      padding: 12px 16px 0;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .single-page {
+      flex-direction: column;
+      padding: 12px 16px 0;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ペインの基本構造 */
+    .pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0; /* 安全装置: スクロール枠が無限に伸びるのを防ぐ */
+      min-width: 0;  /* 安全装置: 横幅の計算崩れを防ぐ */
+    }
+    .pane-header {
+      font-size: 15px; font-weight: 800; color: var(--muted); padding: 0 4px 10px; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; flex: 0 0 auto;
+    }
+    
+    /* スクロール領域を確実に確保する特効薬 */
+    .pane-scroll-wrapper {
+      flex: 1;
+      position: relative;
+      min-height: 0; /* 安全装置: スクロール枠が無限に伸びるのを防ぐ */
+    }
+    .pane-scroll {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+      padding-right: 4px;
+      display: block; /* flexを解除し、安全なスクロールを保証 */
+    }
+    /* カード等の要素の下に直接余白を付けることで安全に間隔をあける */
+    .pane-scroll > * {
+      margin-bottom: 20px;
+    }
+    .pane-scroll > *:last-child {
+      margin-bottom: 0;
+    }
+
+    .pane-scroll::-webkit-scrollbar { width: 5px; }
+    .pane-scroll::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 5px; }
+    .pane-divider { width: 1px; background: var(--line); margin: 0 4px; }
+    
+    .pane-bottom { flex: 0 0 auto; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
+    .bottom-actions { display: flex; gap: 12px; }
+
+    /* スマホ縦画面へのフォールバック */
+    @media (max-width: 768px) {
+      .split-page {
+        flex-direction: column;
+        overflow-y: auto;
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+        gap: 0;
+        /* スマホ時はabsoluteを解除して縦並び */
+        position: relative; display: flex;
+      }
+      .pane { flex: none; height: auto; margin-bottom: 24px; }
+      .pane-scroll-wrapper { flex: none; height: auto; display: block; }
+      .pane-scroll { position: relative; overflow-y: visible; padding-bottom: 0; padding-right: 0; }
+      .pane-divider { width: 100%; height: 1px; margin: 0 0 24px 0; }
+      .pane-bottom { position: sticky; bottom: 0; margin: 0 -16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); z-index: 10; border-top: 1px solid var(--line); }
+      .master-list { grid-template-columns: 1fr !important; }
+    }
+
+    /* 各種UIパーツ（元ファイルから踏襲） */
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 2px solid var(--line2); background: rgba(255,255,255,.02); }
+    .section-head .left { font-weight: 700; color: var(--accent); }
+
+    .big-result { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-height: 36px; }
+    .big-result .num { font-size: 30px; font-weight: 800; color: var(--accent); }
+    .big-result .unit { color: #d1d1d6; font-weight: 700; }
+
+    .field-row { min-height: 52px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; }
+    .field-row:last-child { border-bottom: 0; }
+    .field-row.clickable { cursor: pointer; }
+    .field-row.focused { background: var(--panel2); box-shadow: inset 0 0 0 1px var(--accent); }
+    .label { flex: 0 0 auto; font-weight: 700; white-space: nowrap; min-width: 58px; }
+    .value-box { flex: 1; text-align: right; min-width: 0; }
+    .value-display { font-size: 26px; font-weight: 600; letter-spacing: .02em; }
+    .unit-sm { font-size: 12px; color: var(--muted); margin-left: 5px; }
+    .memo-input { text-align: right; font-size: 18px; }
+
+    .history-list, .parts-history-list { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .history-item, .parts-history-item, .set-card, .master-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+    .history-item { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .history-main { min-width: 0; flex: 1; }
+    .history-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-sub { color: var(--muted); }
+
+    .danger-btn, .icon-btn { color: var(--muted2); padding: 8px; border-radius: 8px; background: rgba(255,255,255,.02); font-weight: 700; }
+    .mini-btn { background: var(--btn2); color: #fff; border-radius: 8px; padding: 7px 10px; font-weight: 700; white-space: nowrap; }
+
+    .set-head { display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--line2); padding-bottom: 8px; margin-bottom: 8px; }
+    .set-title-label { font-weight: 700; color: #d1d1d6; white-space: nowrap; }
+    
+    .select-wrap, .qty-input-box, .text-wrap {
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      min-width: 0;
+    }
+    .part-select { flex: 2; }
+    .qty-input-box { flex: 1; margin-left: 8px; cursor: pointer; }
+    .qty-input-box.focused { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .qty-display { text-align: right; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; flex: 1; }
+
+    .row-item { border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px; background: rgba(0,0,0,.12); margin-bottom: 8px; }
+    .row-top { display: flex; align-items: center; width: 100%; }
+    .row-add-btn, .outline-btn, .primary-btn { min-height: 46px; border-radius: 12px; padding: 0 14px; font-weight: 800; }
+    .row-add-btn, .outline-btn { border: 1px dashed var(--line2); color: var(--muted); background: rgba(255,255,255,.02); width: 100%; }
+    .primary-btn { background: var(--accent); color: #fff; width: 100%; }
+
+    .master-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
+    .master-card { display: flex; flex-direction: column; gap: 8px; }
+    .master-head { display: flex; gap: 8px; align-items: center; }
+    .master-subtitle { font-size: 13px; color: var(--muted2); font-weight: 700; }
+    .part-name-row { display: flex; gap: 8px; align-items: center; }
+
+    .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+    .modal-overlay.show { display: flex; }
+    .modal-content { background: var(--panel); width: 100%; max-width: 520px; border-radius: 20px 20px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.5); animation: slideUp 0.2s ease-out; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; padding: 0 4px; }
+    .modal-result-wrap { display: flex; align-items: baseline; gap: 8px; }
+    .modal-total { font-size: 26px; font-weight: 600; color: var(--accent); letter-spacing: .02em; }
+    .modal-temp { font-size: 26px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+
+    .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .key { min-height: 54px; border-radius: 10px; background: var(--btn); color: #fff; font-size: 20px; font-weight: 800; }
+    .key.gray { background: var(--btn2); font-size: 15px; }
+    .key.orange { background: var(--accent); }
+    .key.span2 { grid-row: span 2; min-height: 112px; }
+    .key.add-action-key { background: var(--btn); border: 2px solid var(--accent); }
+
+    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1010; background: var(--success); color: #fff; font-weight: 800; padding: 12px 18px; border-radius: 999px; box-shadow: var(--shadow); display: none; white-space: nowrap; }
+    .toast.show { display: block; }
+    .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
 </head>
-<body class="min-h-screen flex items-start justify-center p-4">
-
-    <div class="bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700 mt-4">
-        <h1 class="text-2xl font-bold text-center text-white">距離計算</h1>
-        <div class="text-sm font-medium text-gray-400 text-center mb-8 mt-1 uppercase tracking-widest">KYOWA ROOF</div>
-
-        <div class="space-y-6">
-            <!-- 1行目: 並行距離 と 足長 -->
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">並行距離</label>
-                    <input type="text" id="inputH" placeholder="0" inputmode="numeric"
-                           oninput="handleInputFormat(this)" 
-                           onfocus="this.select()"
-                           onkeydown="moveFocus(event, 'inputB')"
-                           class="w-full p-2 border-2 rounded-lg focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">足長</label>
-                    <input type="text" id="inputB" placeholder="0" inputmode="numeric"
-                           oninput="handleInputFormat(this)" 
-                           onfocus="this.select()"
-                           onkeydown="moveFocus(event, 'selectX')"
-                           class="w-full p-2 border-2 rounded-lg focus:outline-none">
-                </div>
-            </div>
-
-            <!-- 2行目: 選択(1) と 寸法(2) -->
-            <div class="grid grid-cols-3 gap-4">
-                <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-400 mb-1">選択</label>
-                    <select id="selectX" 
-                            onchange="autoCalculate()" 
-                            onkeydown="moveFocus(event, 'inputA')"
-                            class="w-full px-2 border-2 rounded-lg focus:outline-none bg-gray-900 text-gray-100">
-                        <option value="45">75</option>
-                        <option value="57">100</option>
-                        <option value="70">125</option>
-                    </select>
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-medium text-gray-400 mb-1">寸法</label>
-                    <input type="text" id="inputA" placeholder="0" inputmode="numeric"
-                           oninput="handleInputFormat(this)" 
-                           onfocus="this.select()"
-                           onkeydown="finishAtA(event)"
-                           class="w-full p-2 border-2 rounded-lg focus:outline-none">
-                </div>
-            </div>
-
-            <!-- 結果表示エリア -->
-            <div class="p-4 bg-gray-900 rounded-xl border-t-4 border-blue-600 shadow-inner">
-                <div class="flex justify-between items-center px-2">
-                    <p class="text-sm text-gray-300 font-bold tracking-wider uppercase">計算結果</p>
-                    <p id="resultC" class="text-xl font-black text-blue-400">---</p>
-                </div>
-            </div>
-
-            <!-- 操作ボタン -->
-            <div class="grid grid-cols-4 gap-4">
-                <button onclick="clearAll()" class="col-span-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-2 rounded-xl transition-all active:scale-95 border border-gray-600 text-sm">
-                    クリア
-                </button>
-                <button id="saveBtn" onclick="saveToHistory()" class="col-span-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl shadow-lg transition-all active:scale-95 text-center text-sm">
-                    履歴保存
-                </button>
-            </div>
-
-            <!-- 履歴リスト -->
-            <div id="historySection" class="hidden mt-4 border-t border-gray-700 pt-4">
-                <p class="text-xs text-gray-400 font-bold mb-2 uppercase tracking-widest">保存履歴</p>
-                <div id="historyList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
-            </div>
-        </div>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="title">数量計算</div>
+      <div class="brand">KYOWA ROOF</div>
+    </div>
+    
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <button class="tab active" data-tab="main">数量 / 部材</button>
+        <button class="tab" data-tab="data">データ設定</button>
+      </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <div class="content" id="content">
+      <!-- 左右分割ページ (メイン) -->
+      <section class="page split-page active" id="page-main">
+        
+        <!-- 左ペイン: 数量計算 -->
+        <div class="pane pane-left">
+          <div class="pane-header">数量計算</div>
+          <div class="pane-scroll-wrapper">
+            <div class="pane-scroll" id="pane-quantity">
+              <!-- 数量コンテンツがここにレンダリングされる -->
+            </div>
+          </div>
+        </div>
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        <div class="pane-divider"></div>
 
-        let currentUser = null;
+        <!-- 右ペイン: 部材リスト -->
+        <div class="pane pane-right">
+          <div class="pane-header">部材ピックアップ</div>
+          <div class="pane-scroll-wrapper">
+            <div class="pane-scroll" id="pane-parts">
+              <!-- 部材コンテンツがここにレンダリングされる -->
+            </div>
+          </div>
+          <div class="pane-bottom">
+            <div class="bottom-actions">
+              <button class="outline-btn" id="btmAddSet" style="border-style:solid;border-color:var(--accent);color:var(--accent);flex:1;">セット追加</button>
+              <button class="primary-btn" id="btmSavePh" style="flex:1;">保存</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        // 数値をカンマ区切りにする
-        window.formatNum = (val) => {
-            if (val === "" || val === null || val === undefined) return "";
-            const numStr = val.toString().replace(/,/g, '');
-            const num = parseFloat(numStr);
-            return isNaN(num) ? val : num.toLocaleString();
-        };
+      <!-- 単一カラムページ (データ) -->
+      <section class="page single-page" id="page-data">
+        <div class="pane-scroll-wrapper">
+          <div class="pane-scroll" id="pane-data-content">
+            <!-- データ設定コンテンツがここにレンダリングされる -->
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
 
-        // カンマを除去して数値のみにする
-        window.stripCommas = (val) => {
-            return val.toString().replace(/,/g, '');
-        };
+  <!-- テンキーモーダル -->
+  <div class="modal-overlay" id="modalKeypad">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-result-wrap mono">
+          <div class="modal-total" id="modalDisplayTotal">0</div>
+          <div class="modal-temp" id="modalDisplayTemp"></div>
+        </div>
+      </div>
+      <div class="keypad" id="modalKeypadContainer"></div>
+    </div>
+  </div>
+  
+  <div class="toast" id="toast"></div>
 
-        const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'construction_calc_v2_ipad_layout';
+      const state = {
+        activeTab: 'main', // デフォルトを分割画面に
+        focusedInput: '',
+        qtyMemo: '',
+        qtyVal1: '',
+        qtyVal2: '',
+        qtyHistory: [],
+        partsHistory: [],
+        masterData: [],
+        projectSets: [],
+        tempModalVal: '0'
+      };
+
+      let forceScrollTo = null;
+
+      const el = {
+        paneQuantity: document.getElementById('pane-quantity'),
+        paneParts: document.getElementById('pane-parts'),
+        pageData: document.getElementById('page-data'),
+        paneData: document.getElementById('pane-data-content'),
+        toast: document.getElementById('toast'),
+        modalKeypad: document.getElementById('modalKeypad'),
+        modalKeypadContainer: document.getElementById('modalKeypadContainer'),
+        modalDisplayTotal: document.getElementById('modalDisplayTotal'),
+        modalDisplayTemp: document.getElementById('modalDisplayTemp'),
+        tabs: Array.from(document.querySelectorAll('.tab')),
+      };
+
+      function uid(p = 'id') { return p + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+      function safeInt(v, f = 0) { const n = parseInt(String(v), 10); return Number.isFinite(n) ? n : f; }
+      function showToast(m) { el.toast.textContent = m; el.toast.classList.add('show'); setTimeout(() => el.toast.classList.remove('show'), 1400); }
+      function escapeHtml(v) { return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+      function escapeAttr(v) { return escapeHtml(v).replace(/`/g,'&#96;'); }
+
+      function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function loadState() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          state.masterData = [{ id: uid('m'), title: 'パイプ部材', parts: [{ id: uid('p'), name: '部材A' }] }];
+          state.projectSets = [{ id: uid('s'), title: 'パイプ部材', items: [{ id: uid('i'), partName: '部材A', quantity: '' }] }];
+        } else {
+          try { 
+            Object.assign(state, JSON.parse(raw)); 
+            // 古いバージョンのタブ情報を補正
+            if (['quantity', 'parts'].includes(state.activeTab)) {
+              state.activeTab = 'main';
             }
-        };
-        initAuth();
+          } catch (_) { localStorage.removeItem(STORAGE_KEY); loadState(); }
+        }
+      }
 
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            if (user) {
-                loadHistory(user.uid);
-            }
+      function setActiveTab(tab) {
+        state.activeTab = tab;
+        state.focusedInput = '';
+        saveState();
+        render();
+      }
+
+      function setFocusedInput(id) {
+        state.focusedInput = id || '';
+        if (state.focusedInput && state.focusedInput !== 'memo') {
+          state.tempModalVal = '0';
+          updateModalDisplay();
+          el.modalKeypadContainer.innerHTML = renderKeypadHTML();
+          el.modalKeypad.classList.add('show');
+          bindModalKeypadEvents();
+        }
+        render();
+      }
+
+      function updateModalDisplay() {
+        let currentTotal = 0;
+        const f = state.focusedInput;
+        if (f === 'val1') currentTotal = safeInt(state.qtyVal1, 0);
+        else if (f === 'val2') currentTotal = safeInt(state.qtyVal2, 0);
+        else if (f.startsWith('p-qty-')) {
+          const p = f.split('-');
+          const set = state.projectSets.find(s => s.id === p[2]);
+          const item = set && set.items.find(i => i.id === p[3]);
+          currentTotal = item ? safeInt(item.quantity, 0) : 0;
+        }
+        el.modalDisplayTotal.textContent = currentTotal;
+        el.modalDisplayTemp.textContent = state.tempModalVal !== '0' ? `+ ${state.tempModalVal}` : '';
+      }
+
+      function executeModalAdd() {
+        const addVal = safeInt(state.tempModalVal, 0);
+        const f = state.focusedInput;
+        if (f === 'val1') state.qtyVal1 = String(safeInt(state.qtyVal1, 0) + addVal);
+        else if (f === 'val2') state.qtyVal2 = String(safeInt(state.qtyVal2, 0) + addVal);
+        else if (f.startsWith('p-qty-')) {
+          const p = f.split('-');
+          state.projectSets = state.projectSets.map(s => (s.id === p[2]) ? { ...s, items: s.items.map(i => i.id === p[3] ? { ...i, quantity: String(safeInt(i.quantity, 0) + addVal) } : i) } : s);
+        }
+        state.tempModalVal = '0';
+        updateModalDisplay();
+        saveState();
+      }
+
+      function handleKeypadInput(input) {
+        if (state.tempModalVal === '0' && input !== '00') state.tempModalVal = String(input);
+        else if (state.tempModalVal !== '0') state.tempModalVal += String(input);
+        updateModalDisplay();
+      }
+
+      function handleClear() { state.tempModalVal = '0'; updateModalDisplay(); }
+
+      function handleAllClear() {
+        const f = state.focusedInput;
+        if (f === 'val1') state.qtyVal1 = '';
+        else if (f === 'val2') state.qtyVal2 = '';
+        else if (f.startsWith('p-qty-')) {
+          const p = f.split('-');
+          state.projectSets = state.projectSets.map(s => (s.id === p[2]) ? { ...s, items: s.items.map(i => i.id === p[3] ? { ...i, quantity: '' } : i) } : s);
+        }
+        state.tempModalVal = '0';
+        updateModalDisplay();
+        saveState();
+      }
+
+      function renderQuantityPage() {
+        const scrollPos = el.paneQuantity.scrollTop;
+        const v1 = safeInt(state.qtyVal1, 0); const v2 = safeInt(state.qtyVal2, 0);
+        const resValue = v2 > 0 ? Math.ceil(v1 / v2) : 0;
+        
+        el.paneQuantity.innerHTML = `
+          <div class="card">
+            <div class="field-row">
+              <div class="label">メモ</div>
+              <div class="value-box"><input class="memo-input" id="qtyMemoInput" type="text" placeholder="品目" value="${escapeHtml(state.qtyMemo)}"></div>
+            </div>
+            <div class="field-row clickable" id="qtyVal1Row"><div class="label">数値</div><div class="value-box mono"><span class="value-display">${state.qtyVal1 || '0'}</span><span class="unit-sm">mm</span></div></div>
+            <div class="field-row clickable" id="qtyVal2Row"><div class="label">割る寸法</div><div class="value-box mono"><span class="value-display">${state.qtyVal2 || '0'}</span><span class="unit-sm">mm</span></div></div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div class="left">計算結果</div><div class="big-result">${v2 > 0 ? `<span class="num mono">${resValue}</span><span class="unit">本</span>` : ''}</div></div>
+            <div class="section-head" style="border-bottom:0; background:none;"><div class="left" style="color:var(--muted)">履歴</div><button class="mini-btn" id="saveQtyBtn" style="background: var(--accent);">結果を保存</button></div>
+            <div class="history-list" id="qh-list">
+              ${state.qtyHistory.length ? state.qtyHistory.map(h => `
+                <div class="history-item"><div class="history-main"><div class="history-title">${escapeHtml(h.memo)}</div><div class="history-sub mono">${h.val1}÷${h.val2}= <span style="color:var(--accent);font-weight:700">${h.result}</span> 本</div></div>
+                <button class="danger-btn" data-del-qh="${h.id}">削除</button></div>
+              `).join('') : `<div class="empty-note" style="color:var(--muted); font-size:14px; text-align:center; padding:10px 0;">履歴はありません</div>`}
+            </div>
+          </div>
+        `;
+        
+        document.getElementById('qtyVal1Row').onclick = () => setFocusedInput('val1');
+        document.getElementById('qtyVal2Row').onclick = () => setFocusedInput('val2');
+        const mi = document.getElementById('qtyMemoInput');
+        mi.oninput = (e) => { state.qtyMemo = e.target.value; saveState(); };
+        mi.onfocus = () => { state.focusedInput = 'memo'; };
+
+        document.getElementById('saveQtyBtn').onclick = () => {
+          if (v2 <= 0) { showToast('数値を正しく入力してください'); return; }
+          state.qtyHistory.unshift({ id: uid('qh'), memo: state.qtyMemo.trim() || '無題', val1: v1, val2: v2, result: resValue, time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) });
+          saveState();
+          forceScrollTo = 'qty-history';
+          render();
+          showToast('保存しました');
+        };
+        el.paneQuantity.querySelectorAll('[data-del-qh]').forEach(b => b.onclick = () => { state.qtyHistory = state.qtyHistory.filter(x => x.id !== b.dataset.delQh); saveState(); render(); });
+        
+        // スクロール位置を復元または指定位置へ
+        if (forceScrollTo === 'qty-history') {
+          const target = document.getElementById('qh-list');
+          if (target) el.paneQuantity.scrollTo({ top: target.offsetTop - 10, behavior: 'smooth' });
+          forceScrollTo = null;
+        } else {
+          el.paneQuantity.scrollTop = scrollPos;
+        }
+      }
+
+      function renderPartsPage() {
+        const scrollPos = el.paneParts.scrollTop;
+        el.paneParts.innerHTML = `
+          ${state.projectSets.map(set => `
+            <div class="set-card">
+              <div class="set-head">
+                <div class="set-title-label">タイトル</div>
+                <div class="select-wrap"><select data-sid="${set.id}" class="set-title-select"><option value="">選択</option>${state.masterData.map(m => `<option value="${escapeAttr(m.title)}" ${m.title === set.title ? 'selected' : ''}>${escapeHtml(m.title)}</option>`).join('')}</select></div>
+                <button class="danger-btn" data-del-set="${set.id}" style="background: var(--btn2); color: #fff;">削除</button>
+              </div>
+              <div class="set-list">
+                ${set.items.map(item => `
+                  <div class="row-item">
+                    <div class="row-top">
+                      <div class="select-wrap part-select"><select data-sid="${set.id}" data-iid="${item.id}" class="part-name-select"><option value="">部材を選択</option>${(state.masterData.find(m => m.title === set.title)?.parts || []).map(p => `<option value="${escapeAttr(p.name)}" ${p.name === item.partName ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
+                      <div class="qty-input-box" data-qty-focus="p-qty-${set.id}-${item.id}"><div class="label" style="min-width:auto">数量</div><div class="qty-display mono">${item.quantity || '0'}</div><div class="unit-sm">個</div></div>
+                    </div>
+                  </div>
+                `).join('')}
+                <button class="row-add-btn" data-add-row="${set.id}">+ 行を追加</button>
+              </div>
+            </div>
+          `).join('')}
+          <div class="card"><div class="section-head"><div class="left">保存履歴 (箇条書き)</div></div><div class="parts-history-list" id="ph-list">
+              ${state.partsHistory.length ? state.partsHistory.map(h => `<div class="parts-history-item"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:8px;"><div style="font-weight:800;opacity:.8">${h.date} ${h.time}</div><div style="display:flex;gap:8px;"><button class="icon-btn" data-copy-txt="${encodeURIComponent(h.bulletText)}">コピー</button><button class="danger-btn" data-del-ph="${h.id}">削除</button></div></div><div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(h.bulletText)}</div></div>`).join('') : `<div class="empty-note" style="color:var(--muted); font-size:14px; text-align:center; padding:10px 0;">履歴はありません</div>`}
+          </div></div>
+        `;
+
+        el.paneParts.querySelectorAll('.set-title-select').forEach(s => s.onchange = (e) => {
+          state.projectSets = state.projectSets.map(x => x.id === s.dataset.sid ? {...x, title: e.target.value} : x);
+          saveState(); render();
+        });
+        el.paneParts.querySelectorAll('.part-name-select').forEach(s => s.onchange = (e) => {
+          state.projectSets = state.projectSets.map(x => x.id === s.dataset.sid ? { ...x, items: x.items.map(i => i.id === s.dataset.iid ? { ...i, partName: e.target.value } : i) } : x);
+          saveState(); render();
+        });
+        el.paneParts.querySelectorAll('[data-qty-focus]').forEach(n => n.onclick = () => setFocusedInput(n.dataset.qtyFocus));
+        el.paneParts.querySelectorAll('[data-del-set]').forEach(b => b.onclick = () => { state.projectSets = state.projectSets.filter(s => s.id !== b.dataset.delSet); saveState(); render(); });
+        el.paneParts.querySelectorAll('[data-add-row]').forEach(b => b.onclick = () => {
+          state.projectSets = state.projectSets.map(s => s.id === b.dataset.addRow ? {...s, items:[...s.items,{id:uid('i'),partName:'',quantity:''}]} : s);
+          saveState(); render();
+        });
+        el.paneParts.querySelectorAll('[data-del-ph]').forEach(b => b.onclick = () => { state.partsHistory = state.partsHistory.filter(x => x.id !== b.dataset.delPh); saveState(); render(); });
+        el.paneParts.querySelectorAll('[data-copy-txt]').forEach(b => b.onclick = () => {
+          const t = decodeURIComponent(b.dataset.copyTxt);
+          const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+          showToast('コピーしました');
         });
 
-        function loadHistory(uid) {
-            const historyPath = collection(db, 'artifacts', appId, 'users', uid, 'history');
-            onSnapshot(historyPath, (snapshot) => {
-                const historyList = document.getElementById('historyList');
-                const historySection = document.getElementById('historySection');
-                
-                if (snapshot.empty) {
-                    historySection.classList.add('hidden');
-                    return;
-                }
-                
-                historySection.classList.remove('hidden');
-                historyList.innerHTML = "";
-
-                const docs = snapshot.docs.map(d => ({id: d.id, ...d.data()}))
-                                        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-
-                docs.forEach(data => {
-                    const item = document.createElement('div');
-                    item.className = "bg-gray-700/40 p-3 rounded-lg flex justify-between items-center border border-gray-700";
-                    item.innerHTML = `
-                        <div class="text-gray-200">
-                            <div class="text-xs text-gray-400">H:${formatNum(data.h)} B:${formatNum(data.b)} X:${data.x} A:${formatNum(data.a)}</div>
-                            <div class="font-black text-blue-300 text-lg">結果=${formatNum(data.result)}</div>
-                        </div>
-                        <button class="del-btn text-gray-500 hover:text-red-400 p-1" data-id="${data.id}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    `;
-                    item.querySelector('.del-btn').onclick = () => deleteHistory(data.id);
-                    historyList.appendChild(item);
-                });
-            }, (err) => console.error("Firestore error:", err));
+        // スクロール位置を復元または指定位置へ
+        if (forceScrollTo === 'parts-history') {
+          const target = document.getElementById('ph-list');
+          if (target) el.paneParts.scrollTo({ top: target.offsetTop - 10, behavior: 'smooth' });
+          forceScrollTo = null;
+        } else if (forceScrollTo === 'parts-bottom') {
+          el.paneParts.scrollTop = el.paneParts.scrollHeight;
+          forceScrollTo = null;
+        } else {
+          el.paneParts.scrollTop = scrollPos;
         }
+      }
 
-        window.saveToHistory = async () => {
-            if (!currentUser) return;
-            const result = stripCommas(document.getElementById('resultC').innerText);
-            if (result === "---" || result === "エラー") return;
+      function renderDataPage() {
+        const scrollPos = el.paneData.scrollTop;
+        el.paneData.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 4px;">
+            <div style="font-weight:800; font-size:16px; color:var(--muted)">マスターデータ登録</div>
+            <button class="primary-btn" id="addMasterBtn" style="width:auto;min-height:40px;padding:0 16px;">セット追加</button>
+          </div>
+          <div class="master-list">
+            ${state.masterData.map(master => `
+              <div class="master-card">
+                <div class="master-head">
+                  <div class="label" style="min-width:auto">タイトル</div>
+                  <div class="text-wrap">
+                    <input type="text" data-master-title="${master.id}" value="${escapeAttr(master.title)}" placeholder="名目">
+                  </div>
+                  <button class="danger-btn" data-delete-master="${master.id}" style="background: var(--btn2); color: #fff; padding: 6px 10px; font-size: 12px;">削除</button>
+                </div>
+                <div class="master-subtitle">部材名登録</div>
+                ${master.parts.map(part => `
+                  <div class="part-name-row">
+                    <div class="text-wrap"><input type="text" data-master-part="${master.id}" data-part-id="${part.id}" value="${escapeAttr(part.name)}" placeholder="部材名"></div>
+                    <button class="danger-btn" data-delete-master-part="${master.id}" data-delete-part-id="${part.id}" style="padding: 6px 10px; font-size: 12px;">削除</button>
+                  </div>
+                `).join('')}
+                <button class="outline-btn" data-add-master-part="${master.id}">+ 部材追加</button>
+              </div>
+            `).join('')}
+          </div>
+        `;
 
-            const h = stripCommas(document.getElementById('inputH').value);
-            const b = stripCommas(document.getElementById('inputB').value);
-            const a = stripCommas(document.getElementById('inputA').value);
-            const x = document.getElementById('selectX').options[document.getElementById('selectX').selectedIndex].text;
-
-            try {
-                const historyPath = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
-                await addDoc(historyPath, {
-                    h, b, a, x, result,
-                    createdAt: serverTimestamp()
-                });
-            } catch (e) {
-                console.error("Save error", e);
-            }
+        document.getElementById('addMasterBtn').onclick = () => {
+          state.masterData.push({ id: uid('m'), title: '', parts: [{ id: uid('p'), name: '' }] });
+          saveState(); render();
         };
+        el.pageData.querySelectorAll('[data-master-title]').forEach(input => {
+          input.oninput = (e) => { state.masterData = state.masterData.map(m => m.id === input.dataset.masterTitle ? { ...m, title: e.target.value } : m); saveState(); };
+        });
+        el.pageData.querySelectorAll('[data-master-part]').forEach(input => {
+          input.oninput = (e) => {
+            const masterId = input.dataset.masterPart;
+            const partId = input.dataset.partId;
+            state.masterData = state.masterData.map(m => m.id === masterId ? { ...m, parts: m.parts.map(p => p.id === partId ? { ...p, name: e.target.value } : p) } : m);
+            saveState();
+          };
+        });
+        el.pageData.querySelectorAll('[data-delete-master]').forEach(btn => {
+          btn.onclick = () => { state.masterData = state.masterData.filter(m => m.id !== btn.dataset.deleteMaster); saveState(); render(); };
+        });
+        el.pageData.querySelectorAll('[data-delete-master-part]').forEach(btn => {
+          btn.onclick = () => {
+            const masterId = btn.dataset.deleteMasterPart;
+            const partId = btn.dataset.deletePartId;
+            state.masterData = state.masterData.map(m => m.id === masterId ? { ...m, parts: m.parts.filter(p => p.id !== partId) } : m);
+            saveState(); render();
+          };
+        });
+        el.pageData.querySelectorAll('[data-add-master-part]').forEach(btn => {
+          btn.onclick = () => {
+            const masterId = btn.dataset.addMasterPart;
+            state.masterData = state.masterData.map(m => m.id === masterId ? { ...m, parts: [...m.parts, { id: uid('p'), name: '' }] } : m);
+            saveState(); render();
+          };
+        });
 
-        async function deleteHistory(id) {
-            if (!currentUser) return;
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'history', id);
-            await deleteDoc(docRef);
+        // スクロール位置を復元
+        el.paneData.scrollTop = scrollPos;
+      }
+
+      function renderKeypadHTML() {
+        return `
+          <button class="key" data-k="7">7</button><button class="key" data-k="8">8</button><button class="key" data-k="9">9</button><button class="key gray" data-a="c">C</button>
+          <button class="key" data-k="4">4</button><button class="key" data-k="5">5</button><button class="key" data-k="6">6</button><button class="key gray" data-a="ac">AC</button>
+          <button class="key" data-k="1">1</button><button class="key" data-k="2">2</button><button class="key" data-k="3">3</button><button class="key orange span2" data-a="done">完了</button>
+          <button class="key" data-k="0">0</button><button class="key" data-k="00">00</button><button class="key add-action-key" data-a="add">加算</button>
+        `;
+      }
+
+      function bindModalKeypadEvents() {
+        const c = el.modalKeypadContainer;
+        c.querySelectorAll('[data-k]').forEach(b => b.onclick = () => handleKeypadInput(b.dataset.k));
+        c.querySelector('[data-a="c"]').onclick = handleClear;
+        c.querySelector('[data-a="ac"]').onclick = handleAllClear;
+        c.querySelector('[data-a="add"]').onclick = executeModalAdd;
+        c.querySelector('[data-a="done"]').onclick = () => { 
+          executeModalAdd(); 
+          el.modalKeypad.classList.remove('show'); 
+          state.focusedInput=''; 
+          render(); 
+        };
+      }
+
+      function buildPartsHistoryText() {
+        const blocks = state.projectSets.filter(s => (s.title || '').trim() || s.items.length).map(s => {
+          const lines = ['■' + (s.title || '無題').trim()];
+          s.items.forEach(i => lines.push(` ・${(i.partName || '').trim() || '未選択'}: ${i.quantity || '0'}個`));
+          return lines.join('\n');
+        });
+        return blocks.join('\n\n').trim();
+      }
+
+      // 共通アクションのバインド（初期化時1回のみ）
+      document.getElementById('btmAddSet').onclick = () => { 
+        state.projectSets.push({id:uid('s'),title:'',items:[{id:uid('i'),partName:'',quantity:''}]}); 
+        saveState();
+        forceScrollTo = 'parts-bottom';
+        render(); 
+      };
+      document.getElementById('btmSavePh').onclick = () => {
+        const txt = buildPartsHistoryText(); if(!txt) { showToast('保存する内容がありません'); return; }
+        state.partsHistory.unshift({ id: uid('ph'), date: new Date().toLocaleDateString('ja-JP',{month:'2-digit',day:'2-digit'}), time: new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), bulletText: txt });
+        saveState();
+        forceScrollTo = 'parts-history';
+        render(); 
+        showToast('保存しました');
+      };
+
+      function render() {
+        el.tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === state.activeTab));
+        document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + state.activeTab));
+        
+        if (state.activeTab === 'main') {
+          renderQuantityPage();
+          renderPartsPage();
+        } else if (state.activeTab === 'data') {
+          renderDataPage();
         }
-    </script>
+      }
 
-    <script>
-        // 入力時にカンマ形式にする
-        function handleInputFormat(el) {
-            let cursor = el.selectionStart;
-            let oldLen = el.value.length;
-            
-            let val = el.value.replace(/,/g, '');
-            if (!isNaN(val) && val !== "") {
-                el.value = Number(val).toLocaleString();
-            } else if (val === "") {
-                el.value = "";
-            }
-            
-            // カーソル位置の調整
-            let newLen = el.value.length;
-            el.setSelectionRange(cursor + (newLen - oldLen), cursor + (newLen - oldLen));
-            
-            autoCalculate();
-        }
+      el.tabs.forEach(b => b.onclick = () => setActiveTab(b.dataset.tab));
+      loadState();
+      render();
+    })();
+  </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((error) => {
+        console.error('Service Worker registration failed:', error);
+      });
+    });
+  }
+</script>
 
-        function moveFocus(e, nextId) {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                document.getElementById(nextId).focus();
-            }
-        }
-
-        function finishAtA(e) {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                autoCalculate();
-                document.getElementById('saveBtn').click();
-                document.getElementById('inputH').focus();
-            }
-        }
-
-        function autoCalculate() {
-            const hRaw = document.getElementById('inputH').value.replace(/,/g, '');
-            const bRaw = document.getElementById('inputB').value.replace(/,/g, '');
-            const aRaw = document.getElementById('inputA').value.replace(/,/g, '');
-            const xVal = parseFloat(document.getElementById('selectX').value);
-            const resultElement = document.getElementById('resultC');
-
-            if (hRaw === "" || bRaw === "" || aRaw === "") {
-                resultElement.innerText = "---";
-                return;
-            }
-
-            const h = parseFloat(hRaw);
-            const bBase = parseFloat(bRaw);
-            const a = parseFloat(aRaw);
-            const bCalc = bBase + xVal;
-
-            const cSquared = (a * a) + (bCalc * bCalc) - (2 * bCalc * h);
-
-            if (cSquared < 0) {
-                resultElement.innerText = "エラー";
-            } else {
-                const c = Math.sqrt(cSquared);
-                const finalC = Math.ceil(c);
-                resultElement.innerText = finalC.toLocaleString();
-            }
-        }
-
-        function clearAll() {
-            document.getElementById('inputH').value = "";
-            document.getElementById('inputB').value = "";
-            document.getElementById('inputA').value = "";
-            document.getElementById('resultC').innerText = "---";
-            document.getElementById('inputH').focus();
-        }
-    </script>
 </body>
 </html>
