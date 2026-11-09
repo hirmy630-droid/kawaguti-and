@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kawaguchi-pwa-20261109-pdf';
+const CACHE_NAME = 'kawaguchi-pwa-20261109-revert';
 const CACHE_PREFIX = 'kawaguchi-pwa-';
 const CORE_ASSETS = ['./index.html', './manifest.json'];
 

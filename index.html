@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>川口立駐</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --ios-bg: #000000;
@@ -296,7 +295,7 @@
             font-size: 15px;
             font-weight: 700;
             color: var(--label-gray);
-            margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; display: flex; justify-content: space-between;
         }
 
         .history-item {
@@ -345,21 +344,6 @@
         body.standalone .tab-wrapper{
             top: env(safe-area-inset-top);
         }
-        
-        .action-btns {
-            display: flex;
-            gap: 12px;
-        }
-        
-        .pdf-btn {
-            color: #3b82f6; /* Tailwind blue-500 */
-            font-size: 14px;
-            font-weight: bold;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: rgba(59, 130, 246, 0.1);
-        }
-
         #installBtn, #iosInstallTip {
             position: fixed;
             right: 16px;
@@ -408,58 +392,9 @@
             font-size:42px;font-weight:700;margin-bottom:14px;
         }
         #boot-title{font-size:18px;font-weight:700;letter-spacing:.2px}
-
-        /* PDF出力用の非表示領域 */
-        #pdf-export-container {
-            position: absolute;
-            top: -9999px;
-            left: -9999px;
-            width: 800px; /* A4横サイズ相当に合わせて調整 */
-            background: #ffffff;
-            color: #000000;
-            padding: 20px;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
-        }
-        
-        .pdf-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 16px;
-            text-align: center;
-            border-bottom: 2px solid #333;
-            padding-bottom: 8px;
-        }
-
-        .pdf-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-            table-layout: fixed;
-        }
-        
-        .pdf-table th, .pdf-table td {
-            border: 1px solid #444;
-            padding: 8px;
-            text-align: center;
-            vertical-align: middle;
-        }
-        
-        .pdf-table th {
-            background: #f0f0f0;
-            font-weight: bold;
-        }
-        
-        .pdf-table .col-num { width: 60px; }
-        .pdf-table .col-data { width: calc((100% - 60px) / 3); }
-
-        .val-missing {
-            color: #999;
-            font-size: 12px;
-        }
     </style>
 
-    <link rel="manifest" href="./manifest.json?v=20261109-pdf">
+    <link rel="manifest" href="./manifest.json?v=20261109-revert">
     <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png?v=20261024-iconfix2">
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=20261024-iconfix2">
     <meta name="theme-color" content="#000000">
@@ -604,10 +539,7 @@
         <div id="history-area" class="history-area">
             <div class="history-header">
                 <span>履歴</span>
-                <div class="action-btns">
-                    <button onclick="exportToPDF()" class="pdf-btn">PDF出力</button>
-                    <button onclick="clearHistory()" class="text-red-500">削除</button>
-                </div>
+                <button onclick="clearHistory()" class="text-red-500">削除</button>
             </div>
             <div id="main-history-list"></div>
         </div>
@@ -615,9 +547,6 @@
         <div class="padding-bottom"></div>
     </div>
 </div>
-
-<!-- PDF出力用のテンプレート (画面には表示されない) -->
-<div id="pdf-export-container"></div>
 
 <script>
     let currentTab = '90';
@@ -814,7 +743,7 @@
         renderHistory();
     }
 
-    // スワイプナビゲーション（左右ループ対応）
+    // スワイプナビゲーション
     let startX = 0;
     let startY = 0;
     const swipeArea = document.getElementById('swipe-container');
@@ -838,30 +767,6 @@
         }
     }, {passive: true});
 
-    function getCalcResult(num, mode) {
-        if (mode === '90') {
-            const c = parseFloat(numberData[num]['elbow-input-90']);
-            const p = parseFloat(numberData[num]['elbow-plus-90']) || 0;
-            if (isNaN(c) || c === 0) return null;
-            let extraPlus = (p > 0) ? 57 : 0;
-            let res = Math.round(((c + p + extraPlus) - ((112 * 2) - (40 * 2))) * 10) / 10;
-            return formatNum(res);
-        } else if (mode === 'elbow-plus') {
-            const c = parseFloat(numberData[num]['elbow-plus-input']);
-            const p = parseFloat(numberData[num]['elbow-plus-extra']) || 0;
-            if (isNaN(c) || c === 0) return null;
-            let res = Math.round(((c + (p / 2)) - ((112 * 2) - (40 * 2))) * 10) / 10;
-            return formatNum(res);
-        } else if (mode === 'cheese') {
-            const c = parseFloat(numberData[num]['cheese-input']);
-            const p = parseFloat(numberData[num]['cheese-plus']) || 0;
-            if (isNaN(c) || c === 0) return null;
-            let res = Math.round(((c + p) - 15) * 10) / 10;
-            return formatNum(res);
-        }
-        return null;
-    }
-
     function recalcAll() {
         elbowCalc();
         elbowPlusCalc();
@@ -869,21 +774,44 @@
     }
 
     function elbowCalc() {
-        const res = getCalcResult(currentNumber, '90');
+        const d = 40, e = 112;
+        const c = parseFloat(numberData[currentNumber]['elbow-input-90']);
+        const p = parseFloat(numberData[currentNumber]['elbow-plus-90']) || 0;
         const resEl = document.getElementById('elbow-result-val');
-        resEl.innerText = res || "---";
+        
+        if (isNaN(c) || c === 0) { resEl.innerText = "---"; return; }
+        
+        let extraPlus = 0;
+        if (p > 0) extraPlus = 57;
+        
+        const actualCore = c + p + extraPlus;
+        let res = Math.round((actualCore - ((e * 2) - (d * 2))) * 10) / 10;
+        resEl.innerText = formatNum(res);
     }
 
     function elbowPlusCalc() {
-        const res = getCalcResult(currentNumber, 'elbow-plus');
+        const d = 40, e = 112;
+        const c = parseFloat(numberData[currentNumber]['elbow-plus-input']);
+        const p = parseFloat(numberData[currentNumber]['elbow-plus-extra']) || 0;
         const resEl = document.getElementById('elbow-plus-result-val');
-        resEl.innerText = res || "---";
+        
+        if (isNaN(c) || c === 0) { resEl.innerText = "---"; return; }
+        
+        const actualCore = c + (p / 2);
+        let res = Math.round((actualCore - ((e * 2) - (d * 2))) * 10) / 10;
+        resEl.innerText = formatNum(res);
     }
 
     function cheeseCalc() {
-        const res = getCalcResult(currentNumber, 'cheese');
+        const d = 15;
+        const c = parseFloat(numberData[currentNumber]['cheese-input']);
+        const p = parseFloat(numberData[currentNumber]['cheese-plus']) || 0;
         const resEl = document.getElementById('cheese-result-val');
-        resEl.innerText = res || "---";
+        
+        if (isNaN(c) || c === 0) { resEl.innerText = "---"; return; }
+        
+        let res = Math.round(((c + p) - d) * 10) / 10;
+        resEl.innerText = formatNum(res);
     }
 
     function saveHistory() {
@@ -989,80 +917,6 @@
         try { localStorage.setItem(storageKeyHist, JSON.stringify(histories)); } catch(e) {}
         renderHistory();
         showToast("履歴を削除しました");
-    }
-    
-    // ==========================================
-    // PDF出力機能
-    // ==========================================
-    function exportToPDF() {
-        showToast("PDFを作成中...");
-        const container = document.getElementById('pdf-export-container');
-        
-        let html = `
-            <div class="pdf-title">川口立駐 測定データ (パイプ径100㎜)</div>
-            <table class="pdf-table">
-                <thead>
-                    <tr>
-                        <th class="col-num">番号</th>
-                        <th class="col-data">縦エルボ (切寸法)</th>
-                        <th class="col-data">横エルボ (切寸法)</th>
-                        <th class="col-data">ドレン下寸 (切寸法)</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        // 1から22までの全データを生成
-        for (let i = 1; i <= 22; i++) {
-            const num = i.toString();
-            
-            // 縦エルボデータ
-            let val90 = numberData[num]['elbow-input-90'] ? formatNum(numberData[num]['elbow-input-90']) : '';
-            let res90 = getCalcResult(num, '90') || '';
-            let disp90 = val90 ? `芯-柱:${val90}<br><strong style="font-size: 16px;">${res90}</strong> mm` : `<span class="val-missing">-</span>`;
-
-            // 横エルボデータ
-            let valElbowPlus = numberData[num]['elbow-plus-input'] ? formatNum(numberData[num]['elbow-plus-input']) : '';
-            let resElbowPlus = getCalcResult(num, 'elbow-plus') || '';
-            let dispElbowPlus = valElbowPlus ? `芯-柱:${valElbowPlus}<br><strong style="font-size: 16px;">${resElbowPlus}</strong> mm` : `<span class="val-missing">-</span>`;
-
-            // ドレン下寸データ
-            let valCheese = numberData[num]['cheese-input'] ? formatNum(numberData[num]['cheese-input']) : '';
-            let resCheese = getCalcResult(num, 'cheese') || '';
-            let dispCheese = valCheese ? `H下端:${valCheese}<br><strong style="font-size: 16px;">${resCheese}</strong> mm` : `<span class="val-missing">-</span>`;
-
-            html += `
-                <tr>
-                    <td class="col-num"><strong>${num}</strong></td>
-                    <td class="col-data">${disp90}</td>
-                    <td class="col-data">${dispElbowPlus}</td>
-                    <td class="col-data">${dispCheese}</td>
-                </tr>
-            `;
-        }
-
-        html += `
-                </tbody>
-            </table>
-        `;
-
-        container.innerHTML = html;
-
-        // html2pdf.js の設定
-        const opt = {
-            margin:       10,
-            filename:     'kawaguchi-ritchu-data.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        // PDF生成
-        html2pdf().set(opt).from(container).save().then(() => {
-            showToast("PDFをダウンロードしました");
-            // 生成後は非表示エリアをクリア
-            setTimeout(() => { container.innerHTML = ''; }, 1000);
-        });
     }
 
     function copyResult(id) { 
