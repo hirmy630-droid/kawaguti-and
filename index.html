@@ -1,842 +1,1088 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>数量計算 - iPad横画面対応版</title>
-  <style>
-    :root {
-      --bg: #000000;
-      --panel: #1c1c1e;
-      --panel2: #2c2c2e;
-      --line: #38383a;
-      --line2: #636366;
-      --text: #ffffff;
-      --muted: #aeaeb2;
-      --muted2: #8e8e93;
-      --accent: #ff9f0a;
-      --success: #30d158;
-      --btn: #3a3a3c;
-      --btn2: #7c7c7e;
-      --shadow: 0 8px 24px rgba(0,0,0,.35);
-      --radius: 14px;
-      --overlay: rgba(0,0,0,0.7);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>川口立駐</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --ios-bg: #000000;
+            --ios-card: #1c1c1e;
+            --ios-border: #333333;
+            --ios-orange: #ff9f0a;
+            --accent-90: #5e5ce6;
+            --accent-cheese: #0a84ff;
+            --accent-dist: #30d158;
+            --ios-silver: #c7c7cc;
+            --ios-silver-dark: #9a9a9e;
+            --label-gray: #b0b0b5;
+            --unfocused-border: #444446;
+        }
 
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-      overflow: hidden;
-    }
-    button, input, select, textarea { font: inherit; color: inherit; }
-    button { border: 0; background: none; padding: 0; cursor: pointer; }
-    select, input, textarea { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); min-width: 0; }
-    input[type="number"]::-webkit-inner-spin-button,
-    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        * {
+            box-sizing: border-box;
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    .app { height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
-    .topbar { padding: max(10px, env(safe-area-inset-top)) 16px 8px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
-    .title { font-size: 20px; font-weight: 700; }
-    .brand { font-size: 14px; font-weight: 600; color: #d1d1d6; white-space: nowrap; }
+        body {
+            margin: 0;
+            background: var(--ios-bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            overscroll-behavior: none;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
 
-    .tabs-wrap { padding: 0 16px 8px; display: flex; justify-content: center; } /* 中央揃えを追加 */
-    .tabs { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; height: 42px; width: 100%; max-width: 400px; } /* width: 100%を追加 */
-    .tab { flex: 1; border-radius: 9px; color: var(--muted2); font-weight: 700; font-size: 14px; }
-    .tab.active { background: var(--btn); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+        /* ヘッダーエリア */
+        .app-header {
+            padding: 16px 12px 6px;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: baseline;
+            background: var(--ios-bg);
+        }
+        .app-header .title {
+            color: #ffffff;
+            font-size: 19px;
+            font-weight: 500;
+            letter-spacing: -0.2px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .app-header .title-badge {
+            font-size: 14px;
+            color: var(--ios-silver);
+            font-weight: normal;
+        }
+        .app-header .subtitle {
+            color: var(--label-gray);
+            font-size: 12px;
+            font-weight: 600;
+        }
 
-    /* メインコンテンツエリア */
-    .content {
-      position: relative;
-      flex: 1;
-      min-height: 0; /* 安全装置: コンテンツが画面外に押し出されるのを防ぐ */
-    }
-    .page {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      display: none;
-    }
-    .page.active { display: flex; }
+        .tab-wrapper {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(15px);
+            padding: 4px 0 8px;
+            display: flex;
+            justify-content: center;
+        }
 
-    /* iPad用 左右分割レイアウト */
-    .split-page {
-      flex-direction: row;
-      gap: 20px;
-      padding: 12px 16px 0;
-      max-width: 1400px;
-      margin: 0 auto;
-      width: 100%;
-    }
-    .single-page {
-      flex-direction: column;
-      padding: 12px 16px 0;
-      max-width: 1200px; /* 最大幅を600pxから1200pxに広げて画面を有効活用 */
-      margin: 0 auto;
-      width: 100%;
-    }
+        .tab-container {
+            display: flex;
+            background: #2c2c2e;
+            width: 92%;
+            max-width: 400px;
+            padding: 2px;
+            border-radius: 10px;
+            border: 1px solid #3a3a3c;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+        }
 
-    /* ペインの基本構造 */
-    .pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      min-height: 0; /* 安全装置: スクロール枠が無限に伸びるのを防ぐ */
-      min-width: 0;  /* 安全装置: 横幅の計算崩れを防ぐ */
-    }
-    .pane-header {
-      font-size: 15px; font-weight: 800; color: var(--muted); padding: 0 4px 10px; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; flex: 0 0 auto;
-    }
+        .tab-button {
+            flex: 1;
+            padding: 5px 0;
+            background: transparent;
+            color: var(--ios-silver-dark);
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            border: 1.5px solid transparent;
+        }
+
+        .tab-button.active {
+            background: #636366;
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .mode-90 #nav-90.active { border-color: var(--accent-90); color: #a2a0ff; }
+        .mode-elbow-plus #nav-elbow-plus.active { border-color: var(--accent-90); color: #a2a0ff; }
+        .mode-cheese #nav-cheese.active { border-color: var(--accent-cheese); color: #82c0ff; }
+
+        /* スワイプコンテナ */
+        #swipe-container {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            touch-action: pan-y;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .result-box {
+            height: 64px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 12px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: background 0.3s, transform 0.1s;
+        }
+        .result-box:active { transform: scale(0.98); }
+
+        .mode-90 .result-box, .mode-elbow-plus .result-box { background: var(--accent-90); }
+        .mode-cheese .result-box { background: var(--accent-cheese); }
+
+        /* セルグリッド */
+        .cell-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--ios-border);
+            gap: 1px;
+            margin: 0 12px 0;
+            border-radius: 16px 16px 0 0;
+            overflow: hidden;
+            border: 1px solid var(--ios-border);
+            border-bottom: none;
+        }
+
+        .calc-cell {
+            background: #121214;
+            height: 54px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            border: 0.5px solid var(--unfocused-border);
+        }
+
+        .calc-cell.focused {
+            background: #1c1c1e;
+            box-shadow: inset 0 0 0 1.5px var(--ios-orange) !important;
+            border-color: var(--ios-orange);
+            z-index: 10;
+        }
+
+        .input-label-left {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--label-gray);
+            white-space: nowrap;
+        }
+
+        .result-label-left {
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .input-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: #ffffff;
+            text-align: right;
+            flex: 1;
+        }
+
+        .input-value.placeholder,
+        .calc-cell.orange-theme .input-value.placeholder {
+            font-size: 16px !important;
+            color: var(--label-gray) !important;
+            opacity: 1 !important;
+        }
+
+        .result-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        select.input-value {
+            background: transparent;
+            border: none;
+            outline: none;
+            direction: rtl;
+            width: 100%;
+        }
+
+        /* 縮小セル(サイズ・重寸法用) */
+        .calc-cell.small-cell {
+            height: 44px;
+        }
+        .calc-cell.small-cell .input-label-left {
+            font-size: 13px;
+        }
+        .calc-cell.small-cell .input-value {
+            font-size: 24px;
+            color: #ffffff !important;
+        }
+        .calc-cell.small-cell select.input-value {
+            font-size: 24px;
+            color: #ffffff !important;
+        }
+
+        /* オレンジテーマ */
+        .calc-cell.orange-theme .input-value {
+            color: var(--ios-orange) !important;
+        }
+
+        .keypad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--ios-border);
+            margin: 0 12px 12px;
+            border-radius: 0 0 16px 16px;
+            overflow: hidden;
+            border: 1px solid var(--ios-border);
+        }
+
+        .key-btn {
+            background: #1c1c1e;
+            color: white;
+            height: 58px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.1s;
+        }
+        .key-btn:active { background: #333; }
+        .key-btn.orange { background: var(--ios-orange); font-weight: 700; }
+        .key-btn.gray { background: #2c2c2e; color: var(--label-gray); font-size: 18px; font-weight: 600; }
+        .key-btn.key-clear { background: #4a4a4f; color: #ffffff; font-size: 18px; font-weight: 700; }
+        
+        .save-btn-standalone-wrap { margin: 0 12px 12px; }
+        .save-btn-standalone {
+            width: 100%;
+            height: 46px;
+            border: 0;
+            border-radius: 12px;
+            background: var(--ios-orange);
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.1s;
+        }
+        .save-btn-standalone:active { background: #e58e00; }
+
+        /* 履歴 */
+        .history-area { padding: 12px; background: #000; }
+        .history-header {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--label-gray);
+            margin-bottom: 12px; display: flex; justify-content: space-between;
+        }
+
+        .history-item {
+            background: #111; border-bottom: 1px solid #222;
+            padding: 6px 12px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .history-item.is-locked { border: 1px solid var(--ios-orange); border-radius: 8px; margin-bottom: 4px; }
+
+        #toast {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(59, 130, 246, 0.95); color: white;
+            padding: 12px 24px; border-radius: 10px; font-weight: bold;
+            opacity: 0; z-index: 1000; transition: 0.3s; pointer-events: none;
+        }
+        #toast.show { opacity: 1; }
+        .hidden { display: none !important; }
+
+        .padding-bottom {
+            padding-bottom: 40px;
+        }
     
-    /* スクロール領域を確実に確保する特効薬 */
-    .pane-scroll-wrapper {
-      flex: 1;
-      position: relative;
-      min-height: 0; /* 安全装置: スクロール枠が無限に伸びるのを防ぐ */
-    }
-    .pane-scroll {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: max(20px, env(safe-area-inset-bottom));
-      padding-right: 4px;
-      display: block; /* flexを解除し、安全なスクロールを保証 */
-    }
-    /* カード等の要素の下に直接余白を付けることで安全に間隔をあける */
-    .pane-scroll > * {
-      margin-bottom: 20px;
-    }
-    .pane-scroll > *:last-child {
-      margin-bottom: 0;
-    }
+        /* ユーティリティ */
+        .w-full{width:100%}
+        .h-auto{height:auto}
+        .h-full{height:100%}
+        .flex-1{flex:1 1 0%}
+        .font-bold{font-weight:700}
+        .text-xs{font-size:12px}
+        .text-xl{font-size:20px}
+        .text-center{text-align:center}
+        .text-red-500{color:#ef4444}
+        .text-zinc-500{color:#71717a}
+        .text-zinc-600{color:#52525b}
+        .text-zinc-800{color:#27272a}
+        .text-orange-500{color:#f97316}
+        .opacity-70{opacity:.7}
+        .ml-1{margin-left:4px}
+        .mb-0\.5{margin-bottom:2px}
+        .p-2{padding:8px}
+        .py-8{padding-top:32px;padding-bottom:32px}
+        .text-\[15px\]{font-size:15px}
+        .text-\[var\(--ios-silver\)\]{color:var(--ios-silver)}
+        .w-\[36px\]{width:36px}
 
-    .pane-scroll::-webkit-scrollbar { width: 5px; }
-    .pane-scroll::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 5px; }
-    .pane-divider { width: 1px; background: var(--line); margin: 0 4px; }
-    
-    .pane-bottom { flex: 0 0 auto; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
-    .bottom-actions { display: flex; gap: 12px; }
+        body.standalone .tab-wrapper{
+            top: env(safe-area-inset-top);
+        }
+        #installBtn, #iosInstallTip {
+            position: fixed;
+            right: 16px;
+            bottom: calc(20px + env(safe-area-inset-bottom));
+            z-index: 9999;
+            border: none;
+            border-radius: 14px;
+            padding: 14px 18px;
+            color: #fff;
+            font-weight: 700;
+            box-shadow: 0 10px 24px rgba(0,0,0,.45);
+        }
+        #installBtn { background:#2563eb; display:none; }
+        #iosInstallTip {
+            left: 16px;
+            right: 16px;
+            display:none;
+            background: rgba(28,28,30,.96);
+            border: 1px solid rgba(255,255,255,.1);
+            text-align:left;
+            line-height:1.45;
+        }
+        #iosInstallTip button{
+            margin-top:10px;
+            background:#2c2c2e;
+            color:#fff;
+            border:none;
+            padding:8px 12px;
+            border-radius:10px;
+        }
+        #boot-splash{
+            position:fixed;
+            inset:0;
+            background:#000;
+            z-index:10000;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            flex-direction:column;
+            transition:opacity .28s ease;
+        }
+        #boot-splash.hide{opacity:0;pointer-events:none}
+        #boot-logo{
+            width:96px;height:96px;border:4px solid #fff;border-radius:28px;
+            display:flex;align-items:center;justify-content:center;
+            font-size:42px;font-weight:700;margin-bottom:14px;
+        }
+        #boot-title{font-size:18px;font-weight:700;letter-spacing:.2px}
+    </style>
 
-    /* スマホ縦画面へのフォールバック */
-    @media (max-width: 768px) {
-      .split-page {
-        flex-direction: column;
-        overflow-y: auto;
-        padding-bottom: max(20px, env(safe-area-inset-bottom));
-        gap: 0;
-        /* スマホ時はabsoluteを解除して縦並び */
-        position: relative; display: flex;
-      }
-      .pane { flex: none; height: auto; margin-bottom: 24px; }
-      .pane-scroll-wrapper { flex: none; height: auto; display: block; }
-      .pane-scroll { position: relative; overflow-y: visible; padding-bottom: 0; padding-right: 0; }
-      .pane-divider { width: 100%; height: 1px; margin: 0 0 24px 0; }
-      .pane-bottom { position: sticky; bottom: 0; margin: 0 -16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); z-index: 10; border-top: 1px solid var(--line); }
-      .master-list { grid-template-columns: 1fr !important; }
-    }
-
-    /* 各種UIパーツ（元ファイルから踏襲） */
-    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
-    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 2px solid var(--line2); background: rgba(255,255,255,.02); }
-    .section-head .left { font-weight: 700; color: var(--accent); }
-
-    .big-result { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-height: 36px; }
-    .big-result .num { font-size: 30px; font-weight: 800; color: var(--accent); }
-    .big-result .unit { color: #d1d1d6; font-weight: 700; }
-
-    .field-row { min-height: 52px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; }
-    .field-row:last-child { border-bottom: 0; }
-    .field-row.clickable { cursor: pointer; }
-    .field-row.focused { background: var(--panel2); box-shadow: inset 0 0 0 1px var(--accent); }
-    .label { flex: 0 0 auto; font-weight: 700; white-space: nowrap; min-width: 58px; }
-    .value-box { flex: 1; text-align: right; min-width: 0; }
-    .value-display { font-size: 26px; font-weight: 600; letter-spacing: .02em; }
-    .unit-sm { font-size: 12px; color: var(--muted); margin-left: 5px; }
-    .memo-input { text-align: right; font-size: 18px; }
-
-    .history-list, .parts-history-list { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-    .history-item, .parts-history-item, .set-card, .master-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
-    .history-item { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
-    .history-main { min-width: 0; flex: 1; }
-    .history-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .history-sub { color: var(--muted); }
-
-    .danger-btn, .icon-btn { color: var(--muted2); padding: 8px; border-radius: 8px; background: rgba(255,255,255,.02); font-weight: 700; }
-    .mini-btn { background: var(--btn2); color: #fff; border-radius: 8px; padding: 7px 10px; font-weight: 700; white-space: nowrap; }
-
-    .set-head { display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--line2); padding-bottom: 8px; margin-bottom: 8px; }
-    .set-title-label { font-weight: 700; color: #d1d1d6; white-space: nowrap; }
-    .set-head .select-wrap { flex: 1; } /* 入力欄を余白の分だけ広げる */
-    
-    .select-wrap, .qty-input-box, .text-wrap {
-      background: rgba(255,255,255,.02);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      min-height: 40px;
-      display: flex;
-      align-items: center;
-      padding: 0 10px;
-      min-width: 0;
-    }
-    .part-select { flex: 2; }
-    .qty-input-box { flex: 1; margin-left: 8px; cursor: pointer; }
-    .qty-input-box.focused { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-    .qty-display { text-align: right; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; flex: 1; }
-
-    .row-item { border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px; background: rgba(0,0,0,.12); margin-bottom: 8px; }
-    .row-top { display: flex; align-items: center; width: 100%; }
-    .row-add-btn, .outline-btn, .primary-btn { min-height: 46px; border-radius: 12px; padding: 0 14px; font-weight: 800; }
-    .row-add-btn, .outline-btn { border: 1px dashed var(--line2); color: var(--muted); background: rgba(255,255,255,.02); width: 100%; }
-    .primary-btn { background: var(--accent); color: #fff; width: 100%; }
-
-    /* 2列固定に修正 */
-    .master-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
-    .master-card { display: flex; flex-direction: column; gap: 8px; }
-    .master-head { display: flex; gap: 8px; align-items: center; }
-    .master-head .text-wrap { flex: 1; } /* 入力欄を余白の分だけ広げる */
-    .master-subtitle { font-size: 13px; color: var(--muted2); font-weight: 700; }
-    .part-name-row { display: flex; gap: 8px; align-items: center; }
-    .part-name-row .text-wrap { flex: 1; } /* 入力欄を余白の分だけ広げる */
-
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      display: none;
-      z-index: 1000;
-      background: rgba(0,0,0,0.01);
-    }
-    .modal-overlay.show { display: block; }
-    .modal-content {
-      position: fixed;
-      left: 8px;
-      top: 8px;
-      width: min(288px, calc(100vw - 16px));
-      background: var(--panel);
-      border: 1px solid var(--line2);
-      border-radius: 16px;
-      padding: 10px;
-      box-shadow: 0 14px 36px rgba(0,0,0,.48);
-      animation: keypadPop .14s ease-out;
-      transform-origin: top center;
-    }
-    @keyframes keypadPop {
-      from { opacity: 0; transform: scale(.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .modal-header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; padding: 0 2px; }
-    .modal-result-wrap { display: flex; align-items: baseline; gap: 6px; }
-    .modal-total { font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
-    .modal-temp { font-size: 20px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
-
-    .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
-    .key { min-height: 44px; border-radius: 9px; background: var(--btn); color: #fff; font-size: 18px; font-weight: 800; }
-    .key.gray { background: var(--btn2); font-size: 13px; }
-    .key.orange { background: var(--accent); }
-    .key.span2 { grid-row: span 2; min-height: 91px; }
-    .key.add-action-key { background: var(--btn); border: 2px solid var(--accent); }
-
-    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1010; background: var(--success); color: #fff; font-weight: 800; padding: 12px 18px; border-radius: 999px; box-shadow: var(--shadow); display: none; white-space: nowrap; }
-    .toast.show { display: block; }
-    .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  </style>
-
-  <meta name="theme-color" content="#000000" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="数量計算" />
-  <link rel="manifest" href="./manifest.json" />
-  <link rel="apple-touch-icon" href="./icon-180.png" />
-
+    <link rel="manifest" href="./manifest.json?v=20261109">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png?v=20261024-iconfix2">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=20261024-iconfix2">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="川口立駐">
+    <meta name="format-detection" content="telephone=no">
 </head>
-<body>
-  <div class="app">
-    <div class="topbar">
-      <div class="title">数量計算</div>
-      <div class="brand">KYOWA ROOF</div>
-    </div>
-    
-    <div class="tabs-wrap">
-      <div class="tabs">
-        <button class="tab active" data-tab="main">数量 / 部材</button>
-        <button class="tab" data-tab="data">データ設定</button>
-      </div>
-    </div>
+<body class="mode-90">
 
-    <div class="content" id="content">
-      <!-- 左右分割ページ (メイン) -->
-      <section class="page split-page active" id="page-main">
-        
-        <!-- 左ペイン: 数量計算 -->
-        <div class="pane pane-left">
-          <div class="pane-header">数量計算</div>
-          <div class="pane-scroll-wrapper">
-            <div class="pane-scroll" id="pane-quantity">
-              <!-- 数量コンテンツがここにレンダリングされる -->
+<div id="boot-splash" aria-hidden="true">
+  <div id="boot-logo">川口</div>
+  <div id="boot-title">川口立駐</div>
+</div>
+
+<button id="installBtn">アプリをインストール</button>
+
+<div id="iosInstallTip">
+  <div>iPhone / iPad はこのボタンではインストールできません。Safariの共有から「ホーム画面に追加」を使ってください。</div>
+  <button type="button" id="closeIosTip">閉じる</button>
+</div>
+
+<div id="toast">コピーしました</div>
+
+<div id="swipe-container">
+    <div class="main-container">
+        <div class="app-header">
+            <div class="title">
+                川口立駐 <span class="title-badge">パイプ径100㎜</span>
             </div>
-          </div>
+            <span class="subtitle">KYOWA ROOF</span>
         </div>
 
-        <div class="pane-divider"></div>
-
-        <!-- 右ペイン: 部材リスト -->
-        <div class="pane pane-right">
-          <div class="pane-header">部材ピックアップ</div>
-          <div class="pane-scroll-wrapper">
-            <div class="pane-scroll" id="pane-parts">
-              <!-- 部材コンテンツがここにレンダリングされる -->
+        <div class="tab-wrapper">
+            <div class="tab-container">
+                <button class="tab-button active" id="nav-90" onclick="switchTab('90')">縦エルボ</button>
+                <button class="tab-button" id="nav-elbow-plus" onclick="switchTab('elbow-plus')">横エルボ</button>
+                <button class="tab-button" id="nav-cheese" onclick="switchTab('cheese')">ドレン下寸</button>
             </div>
-          </div>
-          <div class="pane-bottom">
-            <div class="bottom-actions">
-              <button class="outline-btn" id="btmAddSet" style="border-style:solid;border-color:var(--accent);color:var(--accent);flex:1;">セット追加</button>
-              <button class="primary-btn" id="btmSavePh" style="flex:1;">保存</button>
-            </div>
-          </div>
         </div>
-      </section>
 
-      <!-- 単一カラムページ (データ) -->
-      <section class="page single-page" id="page-data">
-        <div class="pane-scroll-wrapper">
-          <div class="pane-scroll" id="pane-data-content">
-            <!-- データ設定コンテンツがここにレンダリングされる -->
-          </div>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <!-- テンキーモーダル -->
-  <div class="modal-overlay" id="modalKeypad">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-result-wrap mono">
-          <div class="modal-total" id="modalDisplayTotal">0</div>
-          <div class="modal-temp" id="modalDisplayTemp"></div>
-        </div>
-      </div>
-      <div class="keypad" id="modalKeypadContainer"></div>
-    </div>
-  </div>
-  
-  <div class="toast" id="toast"></div>
-
-  <script>
-    (() => {
-      'use strict';
-
-      const STORAGE_KEY = 'construction_calc_v2_ipad_layout';
-      const state = {
-        activeTab: 'main', // デフォルトを分割画面に
-        focusedInput: '',
-        qtyMemo: '',
-        qtyVal1: '',
-        qtyVal2: '',
-        qtyHistory: [],
-        partsHistory: [],
-        masterData: [],
-        projectSets: [],
-        tempModalVal: '0'
-      };
-
-      let forceScrollTo = null;
-      let keypadAnchorPoint = null;
-
-      const el = {
-        paneQuantity: document.getElementById('pane-quantity'),
-        paneParts: document.getElementById('pane-parts'),
-        pageData: document.getElementById('page-data'),
-        paneData: document.getElementById('pane-data-content'),
-        toast: document.getElementById('toast'),
-        modalKeypad: document.getElementById('modalKeypad'),
-        modalContent: document.querySelector('#modalKeypad .modal-content'),
-        modalKeypadContainer: document.getElementById('modalKeypadContainer'),
-        modalDisplayTotal: document.getElementById('modalDisplayTotal'),
-        modalDisplayTemp: document.getElementById('modalDisplayTemp'),
-        tabs: Array.from(document.querySelectorAll('.tab')),
-      };
-
-      function uid(p = 'id') { return p + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
-      function safeInt(v, f = 0) { const n = parseInt(String(v), 10); return Number.isFinite(n) ? n : f; }
-      function showToast(m) { el.toast.textContent = m; el.toast.classList.add('show'); setTimeout(() => el.toast.classList.remove('show'), 1400); }
-      function escapeHtml(v) { return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-      function escapeAttr(v) { return escapeHtml(v).replace(/`/g,'&#96;'); }
-
-      function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-      function loadState() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-          state.masterData = [{ id: uid('m'), title: 'パイプ部材', parts: [{ id: uid('p'), name: '部材A' }] }];
-          state.projectSets = [{ id: uid('s'), title: 'パイプ部材', items: [{ id: uid('i'), partName: '部材A', quantity: '' }] }];
-        } else {
-          try { 
-            Object.assign(state, JSON.parse(raw)); 
-            // 古いバージョンのタブ情報を補正
-            if (['quantity', 'parts'].includes(state.activeTab)) {
-              state.activeTab = 'main';
-            }
-          } catch (_) { localStorage.removeItem(STORAGE_KEY); loadState(); }
-        }
-      }
-
-      function setActiveTab(tab) {
-        state.activeTab = tab;
-        closeKeypad();
-        saveState();
-        render();
-      }
-
-      function closeKeypad() {
-        el.modalKeypad.classList.remove('show');
-        state.focusedInput = '';
-        keypadAnchorPoint = null;
-      }
-
-      function getAnchorPointFromEvent(evt, fallbackEl = null) {
-        if (evt) {
-          if (evt.changedTouches && evt.changedTouches.length) {
-            return { x: evt.changedTouches[0].clientX, y: evt.changedTouches[0].clientY };
-          }
-          if (evt.touches && evt.touches.length) {
-            return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
-          }
-          if (typeof evt.clientX === 'number' && typeof evt.clientY === 'number') {
-            return { x: evt.clientX, y: evt.clientY };
-          }
-        }
-        if (fallbackEl) {
-          const rect = fallbackEl.getBoundingClientRect();
-          return { x: rect.left + (rect.width / 2), y: rect.top + (rect.height / 2) };
-        }
-        return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      }
-
-      function positionFloatingKeypad() {
-        if (!el.modalKeypad.classList.contains('show')) return;
-
-        const modal = el.modalContent;
-        const margin = 8;
-        const gap = 10;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        const modalWidth = modal.offsetWidth || 288;
-        const modalHeight = modal.offsetHeight || 230;
-
-        let left = (viewportWidth - modalWidth) / 2;
-        let top = Math.max(margin, viewportHeight - modalHeight - margin);
-
-        if (keypadAnchorPoint) {
-          left = keypadAnchorPoint.x - (modalWidth / 2);
-
-          const preferBelow = keypadAnchorPoint.y + gap;
-          const preferAbove = keypadAnchorPoint.y - modalHeight - gap;
-
-          if (preferBelow + modalHeight <= viewportHeight - margin) {
-            top = preferBelow;
-          } else if (preferAbove >= margin) {
-            top = preferAbove;
-          } else {
-            top = Math.max(margin, Math.min(preferBelow, viewportHeight - modalHeight - margin));
-          }
-        }
-
-        left = Math.max(margin, Math.min(left, viewportWidth - modalWidth - margin));
-        top = Math.max(margin, Math.min(top, viewportHeight - modalHeight - margin));
-
-        modal.style.left = left + 'px';
-        modal.style.top = top + 'px';
-      }
-
-      function openKeypad(anchorPoint = null) {
-        keypadAnchorPoint = anchorPoint;
-        el.modalKeypadContainer.innerHTML = renderKeypadHTML();
-        el.modalKeypad.classList.add('show');
-        bindModalKeypadEvents();
-        updateModalDisplay();
-        requestAnimationFrame(positionFloatingKeypad);
-      }
-
-      function setFocusedInput(id, evt = null, fallbackEl = null) {
-        state.focusedInput = id || '';
-        if (state.focusedInput && state.focusedInput !== 'memo') {
-          state.tempModalVal = '0';
-          const anchorPoint = getAnchorPointFromEvent(evt, fallbackEl);
-          render();
-          openKeypad(anchorPoint);
-          return;
-        }
-        render();
-      }
-
-      function updateModalDisplay() {
-        let currentTotal = 0;
-        const f = state.focusedInput;
-        if (f === 'val1') currentTotal = safeInt(state.qtyVal1, 0);
-        else if (f === 'val2') currentTotal = safeInt(state.qtyVal2, 0);
-        else if (f.startsWith('p-qty-')) {
-          const p = f.split('-');
-          const set = state.projectSets.find(s => s.id === p[2]);
-          const item = set && set.items.find(i => i.id === p[3]);
-          currentTotal = item ? safeInt(item.quantity, 0) : 0;
-        }
-        el.modalDisplayTotal.textContent = currentTotal;
-        el.modalDisplayTemp.textContent = state.tempModalVal !== '0' ? `+ ${state.tempModalVal}` : '';
-      }
-
-      function executeModalAdd() {
-        const addVal = safeInt(state.tempModalVal, 0);
-        const f = state.focusedInput;
-        if (f === 'val1') state.qtyVal1 = String(safeInt(state.qtyVal1, 0) + addVal);
-        else if (f === 'val2') state.qtyVal2 = String(safeInt(state.qtyVal2, 0) + addVal);
-        else if (f.startsWith('p-qty-')) {
-          const p = f.split('-');
-          state.projectSets = state.projectSets.map(s => (s.id === p[2]) ? { ...s, items: s.items.map(i => i.id === p[3] ? { ...i, quantity: String(safeInt(i.quantity, 0) + addVal) } : i) } : s);
-        }
-        state.tempModalVal = '0';
-        updateModalDisplay();
-        saveState();
-      }
-
-      function handleKeypadInput(input) {
-        if (state.tempModalVal === '0' && input !== '00') state.tempModalVal = String(input);
-        else if (state.tempModalVal !== '0') state.tempModalVal += String(input);
-        updateModalDisplay();
-      }
-
-      function handleClear() { state.tempModalVal = '0'; updateModalDisplay(); }
-
-      function handleAllClear() {
-        const f = state.focusedInput;
-        if (f === 'val1') state.qtyVal1 = '';
-        else if (f === 'val2') state.qtyVal2 = '';
-        else if (f.startsWith('p-qty-')) {
-          const p = f.split('-');
-          state.projectSets = state.projectSets.map(s => (s.id === p[2]) ? { ...s, items: s.items.map(i => i.id === p[3] ? { ...i, quantity: '' } : i) } : s);
-        }
-        state.tempModalVal = '0';
-        updateModalDisplay();
-        saveState();
-      }
-
-      function renderQuantityPage() {
-        const scrollPos = el.paneQuantity.scrollTop;
-        const v1 = safeInt(state.qtyVal1, 0); const v2 = safeInt(state.qtyVal2, 0);
-        const resValue = v2 > 0 ? Math.ceil(v1 / v2) : 0;
-        
-        el.paneQuantity.innerHTML = `
-          <div class="card">
-            <div class="field-row">
-              <div class="label">メモ</div>
-              <div class="value-box"><input class="memo-input" id="qtyMemoInput" type="text" placeholder="品目" value="${escapeHtml(state.qtyMemo)}"></div>
-            </div>
-            <div class="field-row clickable" id="qtyVal1Row"><div class="label">数値</div><div class="value-box mono"><span class="value-display">${state.qtyVal1 || '0'}</span><span class="unit-sm">mm</span></div></div>
-            <div class="field-row clickable" id="qtyVal2Row"><div class="label">割る寸法</div><div class="value-box mono"><span class="value-display">${state.qtyVal2 || '0'}</span><span class="unit-sm">mm</span></div></div>
-          </div>
-          <div class="card">
-            <div class="section-head"><div class="left">計算結果</div><div class="big-result">${v2 > 0 ? `<span class="num mono">${resValue}</span><span class="unit">本</span>` : ''}</div></div>
-            <div class="section-head" style="border-bottom:0; background:none;"><div class="left" style="color:var(--muted)">履歴</div><button class="mini-btn" id="saveQtyBtn" style="background: var(--accent);">結果を保存</button></div>
-            <div class="history-list" id="qh-list">
-              ${state.qtyHistory.length ? state.qtyHistory.map(h => `
-                <div class="history-item"><div class="history-main"><div class="history-title">${escapeHtml(h.memo)}</div><div class="history-sub mono">${h.val1}÷${h.val2}= <span style="color:var(--accent);font-weight:700">${h.result}</span> 本</div></div>
-                <button class="danger-btn" data-del-qh="${h.id}">削除</button></div>
-              `).join('') : `<div class="empty-note" style="color:var(--muted); font-size:14px; text-align:center; padding:10px 0;">履歴はありません</div>`}
-            </div>
-          </div>
-        `;
-        
-        const qtyVal1Row = document.getElementById('qtyVal1Row');
-        qtyVal1Row.onclick = (e) => setFocusedInput('val1', e, qtyVal1Row);
-        const qtyVal2Row = document.getElementById('qtyVal2Row');
-        qtyVal2Row.onclick = (e) => setFocusedInput('val2', e, qtyVal2Row);
-        const mi = document.getElementById('qtyMemoInput');
-        mi.oninput = (e) => { state.qtyMemo = e.target.value; saveState(); };
-        mi.onfocus = () => { closeKeypad(); state.focusedInput = 'memo'; };
-
-        document.getElementById('saveQtyBtn').onclick = () => {
-          if (v2 <= 0) { showToast('数値を正しく入力してください'); return; }
-          state.qtyHistory.unshift({ id: uid('qh'), memo: state.qtyMemo.trim() || '無題', val1: v1, val2: v2, result: resValue, time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) });
-          saveState();
-          forceScrollTo = 'qty-history';
-          render();
-          showToast('保存しました');
-        };
-        el.paneQuantity.querySelectorAll('[data-del-qh]').forEach(b => b.onclick = () => { state.qtyHistory = state.qtyHistory.filter(x => x.id !== b.dataset.delQh); saveState(); render(); });
-        
-        // スクロール位置を復元または指定位置へ
-        if (forceScrollTo === 'qty-history') {
-          const target = document.getElementById('qh-list');
-          if (target) el.paneQuantity.scrollTo({ top: target.offsetTop - 10, behavior: 'smooth' });
-          forceScrollTo = null;
-        } else {
-          el.paneQuantity.scrollTop = scrollPos;
-        }
-      }
-
-      function renderPartsPage() {
-        const scrollPos = el.paneParts.scrollTop;
-        el.paneParts.innerHTML = `
-          ${state.projectSets.map(set => `
-            <div class="set-card">
-              <div class="set-head">
-                <div class="set-title-label">タイトル</div>
-                <div class="select-wrap"><select data-sid="${set.id}" class="set-title-select"><option value="">選択</option>${state.masterData.map(m => `<option value="${escapeAttr(m.title)}" ${m.title === set.title ? 'selected' : ''}>${escapeHtml(m.title)}</option>`).join('')}</select></div>
-                <button class="danger-btn" data-del-set="${set.id}" style="background: var(--btn2); color: #fff;">削除</button>
-              </div>
-              <div class="set-list">
-                ${set.items.map(item => `
-                  <div class="row-item">
-                    <div class="row-top">
-                      <div class="select-wrap part-select"><select data-sid="${set.id}" data-iid="${item.id}" class="part-name-select"><option value="">部材を選択</option>${(state.masterData.find(m => m.title === set.title)?.parts || []).map(p => `<option value="${escapeAttr(p.name)}" ${p.name === item.partName ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
-                      <div class="qty-input-box" data-qty-focus="p-qty-${set.id}-${item.id}"><div class="label" style="min-width:auto">数量</div><div class="qty-display mono">${item.quantity || '0'}</div><div class="unit-sm">個</div></div>
-                    </div>
-                  </div>
-                `).join('')}
-                <button class="row-add-btn" data-add-row="${set.id}">+ 行を追加</button>
-              </div>
-            </div>
-          `).join('')}
-          <div class="card"><div class="section-head"><div class="left">保存履歴 (箇条書き)</div></div><div class="parts-history-list" id="ph-list">
-              ${state.partsHistory.length ? state.partsHistory.map(h => `<div class="parts-history-item"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:8px;"><div style="font-weight:800;opacity:.8">${h.date} ${h.time}</div><div style="display:flex;gap:8px;"><button class="icon-btn" data-copy-txt="${encodeURIComponent(h.bulletText)}">コピー</button><button class="danger-btn" data-del-ph="${h.id}">削除</button></div></div><div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(h.bulletText)}</div></div>`).join('') : `<div class="empty-note" style="color:var(--muted); font-size:14px; text-align:center; padding:10px 0;">履歴はありません</div>`}
-          </div></div>
-        `;
-
-        el.paneParts.querySelectorAll('.set-title-select').forEach(s => s.onchange = (e) => {
-          state.projectSets = state.projectSets.map(x => x.id === s.dataset.sid ? {...x, title: e.target.value} : x);
-          saveState(); render();
-        });
-        el.paneParts.querySelectorAll('.part-name-select').forEach(s => s.onchange = (e) => {
-          state.projectSets = state.projectSets.map(x => x.id === s.dataset.sid ? { ...x, items: x.items.map(i => i.id === s.dataset.iid ? { ...i, partName: e.target.value } : i) } : x);
-          saveState(); render();
-        });
-        el.paneParts.querySelectorAll('[data-qty-focus]').forEach(n => {
-          n.onclick = (e) => setFocusedInput(n.dataset.qtyFocus, e, n);
-        });
-        el.paneParts.querySelectorAll('[data-del-set]').forEach(b => b.onclick = () => { state.projectSets = state.projectSets.filter(s => s.id !== b.dataset.delSet); saveState(); render(); });
-        el.paneParts.querySelectorAll('[data-add-row]').forEach(b => b.onclick = () => {
-          state.projectSets = state.projectSets.map(s => s.id === b.dataset.addRow ? {...s, items:[...s.items,{id:uid('i'),partName:'',quantity:''}]} : s);
-          saveState(); render();
-        });
-        el.paneParts.querySelectorAll('[data-del-ph]').forEach(b => b.onclick = () => { state.partsHistory = state.partsHistory.filter(x => x.id !== b.dataset.delPh); saveState(); render(); });
-        el.paneParts.querySelectorAll('[data-copy-txt]').forEach(b => b.onclick = () => {
-          const t = decodeURIComponent(b.dataset.copyTxt);
-          const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-          showToast('コピーしました');
-        });
-
-        // スクロール位置を復元または指定位置へ
-        if (forceScrollTo === 'parts-history') {
-          const target = document.getElementById('ph-list');
-          if (target) el.paneParts.scrollTo({ top: target.offsetTop - 10, behavior: 'smooth' });
-          forceScrollTo = null;
-        } else if (forceScrollTo === 'parts-bottom') {
-          el.paneParts.scrollTop = el.paneParts.scrollHeight;
-          forceScrollTo = null;
-        } else {
-          el.paneParts.scrollTop = scrollPos;
-        }
-      }
-
-      function renderDataPage() {
-        const scrollPos = el.paneData.scrollTop;
-        el.paneData.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 4px;">
-            <div style="font-weight:800; font-size:16px; color:var(--muted)">マスターデータ登録</div>
-            <button class="primary-btn" id="addMasterBtn" style="width:auto;min-height:40px;padding:0 16px;">セット追加</button>
-          </div>
-          <div class="master-list">
-            ${state.masterData.map(master => `
-              <div class="master-card">
-                <div class="master-head">
-                  <div class="label" style="min-width:auto">タイトル</div>
-                  <div class="text-wrap">
-                    <input type="text" data-master-title="${master.id}" value="${escapeAttr(master.title)}" placeholder="名目">
-                  </div>
-                  <button class="danger-btn" data-delete-master="${master.id}" style="background: var(--btn2); color: #fff; padding: 6px 10px; font-size: 12px;">削除</button>
+        <div id="section-90">
+            <div class="result-box" onclick="copyResult('elbow-result-val')">
+                <div class="result-label-left">切寸法</div>
+                <div class="result-value">
+                    <span id="elbow-result-val">---</span>
+                    <span class="text-xs font-bold opacity-70 ml-1">mm</span>
                 </div>
-                <div class="master-subtitle">部材名登録</div>
-                ${master.parts.map(part => `
-                  <div class="part-name-row">
-                    <div class="text-wrap"><input type="text" data-master-part="${master.id}" data-part-id="${part.id}" value="${escapeAttr(part.name)}" placeholder="部材名"></div>
-                    <button class="danger-btn" data-delete-master-part="${master.id}" data-delete-part-id="${part.id}" style="padding: 6px 10px; font-size: 12px;">削除</button>
-                  </div>
-                `).join('')}
-                <button class="outline-btn" data-add-master-part="${master.id}">+ 部材追加</button>
-              </div>
-            `).join('')}
-          </div>
-        `;
+            </div>
 
-        document.getElementById('addMasterBtn').onclick = () => {
-          state.masterData.push({ id: uid('m'), title: '', parts: [{ id: uid('p'), name: '' }] });
-          saveState(); render();
+            <div class="cell-grid">
+                <div class="calc-cell small-cell">
+                    <span class="input-label-left">番号▼</span>
+                    <select id="elbow-size" class="input-value" onchange="syncAndCalc(this.value)">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                        <option value="16">16</option>
+                        <option value="17">17</option>
+                        <option value="18">18</option>
+                        <option value="19">19</option>
+                        <option value="20">20</option>
+                        <option value="21">21</option>
+                        <option value="22">22</option>
+                    </select>
+                </div>
+                <div class="calc-cell small-cell" style="background: #0d0d0f;">
+                    <span class="input-label-left">重寸法</span>
+                    <span class="input-value text-zinc-600" id="elbow-d-val">40</span>
+                </div>
+                <div class="calc-cell orange-theme focused" id="cell-elbow-input" onclick="focusInput('elbow-input-90')">
+                    <span class="input-label-left">芯-柱寸法</span>
+                    <div id="elbow-input-90" class="input-value">0</div>
+                </div>
+                <div class="calc-cell" id="cell-elbow-plus" onclick="focusInput('elbow-plus-90')">
+                    <span class="input-label-left">+</span>
+                    <div id="elbow-plus-90" class="input-value placeholder">柱寸+足</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-elbow-plus" class="hidden">
+            <div class="result-box" onclick="copyResult('elbow-plus-result-val')">
+                <div class="result-label-left">切寸法</div>
+                <div class="result-value">
+                    <span id="elbow-plus-result-val">---</span>
+                    <span class="text-xs font-bold opacity-70 ml-1">mm</span>
+                </div>
+            </div>
+
+            <div class="cell-grid">
+                <div class="calc-cell small-cell">
+                    <span class="input-label-left">番号▼</span>
+                    <select id="elbow-plus-size" class="input-value" onchange="syncAndCalc(this.value)">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                        <option value="16">16</option>
+                        <option value="17">17</option>
+                        <option value="18">18</option>
+                        <option value="19">19</option>
+                        <option value="20">20</option>
+                        <option value="21">21</option>
+                        <option value="22">22</option>
+                    </select>
+                </div>
+                <div class="calc-cell small-cell" style="background: #0d0d0f;">
+                    <span class="input-label-left">重寸法</span>
+                    <span class="input-value text-zinc-600" id="elbow-plus-d-val">40</span>
+                </div>
+                <div class="calc-cell orange-theme" id="cell-elbow-plus-input" onclick="focusInput('elbow-plus-input')">
+                    <span class="input-label-left">芯-柱寸法</span>
+                    <div id="elbow-plus-input" class="input-value">0</div>
+                </div>
+                <div class="calc-cell" id="cell-elbow-plus-extra" onclick="focusInput('elbow-plus-extra')">
+                    <span class="input-label-left">+</span>
+                    <div id="elbow-plus-extra" class="input-value placeholder">柱寸法</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-cheese" class="hidden">
+            <div class="result-box" onclick="copyResult('cheese-result-val')">
+                <div class="result-label-left">切寸法</div>
+                <div class="result-value">
+                    <span id="cheese-result-val">---</span>
+                    <span class="text-xs font-bold opacity-70 ml-1">mm</span>
+                </div>
+            </div>
+
+            <div class="cell-grid">
+                <div class="calc-cell small-cell">
+                    <span class="input-label-left">番号▼</span>
+                    <select id="cheese-size" class="input-value" onchange="syncAndCalc(this.value)">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                        <option value="16">16</option>
+                        <option value="17">17</option>
+                        <option value="18">18</option>
+                        <option value="19">19</option>
+                        <option value="20">20</option>
+                        <option value="21">21</option>
+                        <option value="22">22</option>
+                    </select>
+                </div>
+                <div class="calc-cell small-cell" style="background: #0d0d0f;">
+                    <span class="input-label-left">−</span>
+                    <span class="input-value text-zinc-600" id="cheese-c6-val">15</span>
+                </div>
+                <div class="calc-cell orange-theme" id="cell-cheese-input" onclick="focusInput('cheese-input')">
+                    <span class="input-label-left">ドレン下</span>
+                    <div id="cheese-input" class="input-value placeholder">H下端</div>
+                </div>
+                <div class="calc-cell" id="cell-cheese-plus" onclick="focusInput('cheese-plus')">
+                    <span class="input-label-left">吊金具</span>
+                    <div id="cheese-plus" class="input-value">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="keypad-container" id="main-keypad"></div>
+        <div class="save-btn-standalone-wrap" id="save-btn-wrap">
+            <button class="save-btn-standalone" id="save-btn-standalone" onclick="saveHistory()">保存</button>
+        </div>
+
+        <!-- 履歴表示 -->
+        <div id="history-area" class="history-area">
+            <div class="history-header">
+                <span>履歴</span>
+                <button onclick="clearHistory()" class="text-red-500">削除</button>
+            </div>
+            <div id="main-history-list"></div>
+        </div>
+
+        <div class="padding-bottom"></div>
+    </div>
+</div>
+
+<script>
+    let currentTab = '90';
+    let focusedInputId = 'elbow-input-90';
+    let isOverwriteMode = true;
+    const storageKeyData = 'kyowa_unified_data_v42';
+    const storageKeyHist = 'kyowa_unified_hist_v42';
+    const lastTabKey = 'kyowa_last_tab_unified';
+    
+    // データ管理
+    let currentNumber = '1';
+    let numberData = {};
+    for (let i = 1; i <= 22; i++) {
+        numberData[i.toString()] = {
+            'elbow-input-90': '',
+            'elbow-plus-90': '',
+            'elbow-plus-input': '',
+            'elbow-plus-extra': '',
+            'cheese-input': '',
+            'cheese-plus': ''
         };
-        el.pageData.querySelectorAll('[data-master-title]').forEach(input => {
-          input.oninput = (e) => { state.masterData = state.masterData.map(m => m.id === input.dataset.masterTitle ? { ...m, title: e.target.value } : m); saveState(); };
-        });
-        el.pageData.querySelectorAll('[data-master-part]').forEach(input => {
-          input.oninput = (e) => {
-            const masterId = input.dataset.masterPart;
-            const partId = input.dataset.partId;
-            state.masterData = state.masterData.map(m => m.id === masterId ? { ...m, parts: m.parts.map(p => p.id === partId ? { ...p, name: e.target.value } : p) } : m);
-            saveState();
-          };
-        });
-        el.pageData.querySelectorAll('[data-delete-master]').forEach(btn => {
-          btn.onclick = () => { state.masterData = state.masterData.filter(m => m.id !== btn.dataset.deleteMaster); saveState(); render(); };
-        });
-        el.pageData.querySelectorAll('[data-delete-master-part]').forEach(btn => {
-          btn.onclick = () => {
-            const masterId = btn.dataset.deleteMasterPart;
-            const partId = btn.dataset.deletePartId;
-            state.masterData = state.masterData.map(m => m.id === masterId ? { ...m, parts: m.parts.filter(p => p.id !== partId) } : m);
-            saveState(); render();
-          };
-        });
-        el.pageData.querySelectorAll('[data-add-master-part]').forEach(btn => {
-          btn.onclick = () => {
-            const masterId = btn.dataset.addMasterPart;
-            state.masterData = state.masterData.map(m => m.id === masterId ? { ...m, parts: [...m.parts, { id: uid('p'), name: '' }] } : m);
-            saveState(); render();
-          };
-        });
-
-        // スクロール位置を復元
-        el.paneData.scrollTop = scrollPos;
-      }
-
-      function renderKeypadHTML() {
-        return `
-          <button class="key" data-k="7">7</button><button class="key" data-k="8">8</button><button class="key" data-k="9">9</button><button class="key gray" data-a="c">C</button>
-          <button class="key" data-k="4">4</button><button class="key" data-k="5">5</button><button class="key" data-k="6">6</button><button class="key gray" data-a="ac">AC</button>
-          <button class="key" data-k="1">1</button><button class="key" data-k="2">2</button><button class="key" data-k="3">3</button><button class="key orange span2" data-a="done">完了</button>
-          <button class="key" data-k="0">0</button><button class="key" data-k="00">00</button><button class="key add-action-key" data-a="add">加算</button>
-        `;
-      }
-
-      function bindModalKeypadEvents() {
-        const c = el.modalKeypadContainer;
-        c.querySelectorAll('[data-k]').forEach(b => b.onclick = () => handleKeypadInput(b.dataset.k));
-        c.querySelector('[data-a="c"]').onclick = handleClear;
-        c.querySelector('[data-a="ac"]').onclick = handleAllClear;
-        c.querySelector('[data-a="add"]').onclick = executeModalAdd;
-        c.querySelector('[data-a="done"]').onclick = () => {
-          executeModalAdd();
-          closeKeypad();
-          render();
-        };
-      }
-
-      function buildPartsHistoryText() {
-        const blocks = state.projectSets.filter(s => (s.title || '').trim() || s.items.length).map(s => {
-          const lines = ['■' + (s.title || '無題').trim()];
-          s.items.forEach(i => lines.push(` ・${(i.partName || '').trim() || '未選択'}: ${i.quantity || '0'}個`));
-          return lines.join('\n');
-        });
-        return blocks.join('\n\n').trim();
-      }
-
-      // 共通アクションのバインド（初期化時1回のみ）
-      document.getElementById('btmAddSet').onclick = () => { 
-        state.projectSets.push({id:uid('s'),title:'',items:[{id:uid('i'),partName:'',quantity:''}]}); 
-        saveState();
-        forceScrollTo = 'parts-bottom';
-        render(); 
-      };
-      document.getElementById('btmSavePh').onclick = () => {
-        const txt = buildPartsHistoryText(); if(!txt) { showToast('保存する内容がありません'); return; }
-        state.partsHistory.unshift({ id: uid('ph'), date: new Date().toLocaleDateString('ja-JP',{month:'2-digit',day:'2-digit'}), time: new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), bulletText: txt });
-        saveState();
-        forceScrollTo = 'parts-history';
-        render(); 
-        showToast('保存しました');
-      };
-
-      function render() {
-        el.tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === state.activeTab));
-        document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + state.activeTab));
-        
-        if (state.activeTab === 'main') {
-          renderQuantityPage();
-          renderPartsPage();
-        } else if (state.activeTab === 'data') {
-          renderDataPage();
-        }
-      }
-
-      // スワイプによるタブ切り替え機能
-      let touchStartX = 0;
-      let touchStartY = 0;
-      const contentEl = document.getElementById('content');
-      
-      contentEl.addEventListener('touchstart', e => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-      }, { passive: true });
-
-      contentEl.addEventListener('touchend', e => {
-        const touchEndX = e.changedTouches[0].screenX;
-        const touchEndY = e.changedTouches[0].screenY;
-        
-        // テンキーモーダル表示中はスワイプ無効
-        if (el.modalKeypad.classList.contains('show')) return;
-
-        const dx = touchEndX - touchStartX;
-        const dy = touchEndY - touchStartY;
-
-        // 横方向へのスワイプ判定（縦ブレより横移動が大きく、かつ50px以上スワイプした時）
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-          const tabsOrder = ['main', 'data'];
-          const currentIndex = tabsOrder.indexOf(state.activeTab);
-
-          if (dx < 0 && currentIndex < tabsOrder.length - 1) {
-            // 左にスワイプ（次のタブへ）
-            setActiveTab(tabsOrder[currentIndex + 1]);
-          } else if (dx > 0 && currentIndex > 0) {
-            // 右にスワイプ（前のタブへ）
-            setActiveTab(tabsOrder[currentIndex - 1]);
-          }
-        }
-      }, { passive: true });
-
-      el.modalKeypad.addEventListener('click', (e) => {
-        if (e.target === el.modalKeypad) {
-          closeKeypad();
-          render();
-        }
-      });
-
-      window.addEventListener('resize', () => {
-        if (el.modalKeypad.classList.contains('show')) {
-          positionFloatingKeypad();
-        }
-      });
-
-      window.addEventListener('orientationchange', () => {
-        if (el.modalKeypad.classList.contains('show')) {
-          positionFloatingKeypad();
-        }
-      });
-
-      el.tabs.forEach(b => b.onclick = () => setActiveTab(b.dataset.tab));
-      loadState();
-      render();
-    })();
-  </script>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch((error) => {
-          console.error('Service Worker registration failed:', error);
-        });
-      });
     }
-  </script>
 
+    // ローカルストレージからデータ読み込み
+    try {
+        const savedData = JSON.parse(localStorage.getItem(storageKeyData));
+        if (savedData && savedData['1']) {
+            numberData = savedData;
+        }
+    } catch(e) {}
+
+    // プレースホルダーの初期表示文字列
+    const placeholders = {
+        'elbow-input-90': '0',
+        'elbow-plus-90': '柱寸+足',
+        'elbow-plus-input': '0',
+        'elbow-plus-extra': '柱寸法',
+        'cheese-input': 'H下端',
+        'cheese-plus': '0'
+    };
+
+    let histories = [];
+    try {
+        histories = JSON.parse(localStorage.getItem(storageKeyHist)) || [];
+    } catch(e) {}
+
+    const keypadLayout = `
+        <button class="key-btn" onclick="pressKey('7')">7</button>
+        <button class="key-btn" onclick="pressKey('8')">8</button>
+        <button class="key-btn" onclick="pressKey('9')">9</button>
+
+        <button class="key-btn" onclick="pressKey('4')">4</button>
+        <button class="key-btn" onclick="pressKey('5')">5</button>
+        <button class="key-btn" onclick="pressKey('6')">6</button>
+
+        <button class="key-btn" onclick="pressKey('1')">1</button>
+        <button class="key-btn" onclick="pressKey('2')">2</button>
+        <button class="key-btn" onclick="pressKey('3')">3</button>
+
+        <button class="key-btn" onclick="pressKey('0')">0</button>
+        <button class="key-btn" onclick="pressKey('00')">00</button>
+        <button class="key-btn key-clear" onclick="pressKey('clear')">クリア</button>
+    `;
+
+    function renderKeypad() {
+        const keypad = document.getElementById('main-keypad');
+        if (keypad) {
+            keypad.innerHTML = keypadLayout;
+            keypad.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        }
+    }
+
+    function syncAndCalc(newNum) {
+        let oldNum = currentNumber;
+        currentNumber = newNum;
+        
+        document.getElementById('elbow-size').value = newNum;
+        document.getElementById('elbow-plus-size').value = newNum;
+        document.getElementById('cheese-size').value = newNum;
+        
+        // 未入力の補助フィールドを引き継ぐ
+        const fieldsToInherit = ['elbow-plus-90', 'elbow-plus-extra', 'cheese-plus'];
+        fieldsToInherit.forEach(field => {
+            if (numberData[newNum][field] === '') {
+                numberData[newNum][field] = numberData[oldNum][field];
+            }
+        });
+        
+        try { localStorage.setItem(storageKeyData, JSON.stringify(numberData)); } catch(e) {}
+        
+        updateDisplaysForCurrentNumber();
+        recalcAll();
+    }
+
+    function updateDisplaysForCurrentNumber() {
+        ['elbow-input-90', 'elbow-plus-90', 'elbow-plus-input', 'elbow-plus-extra', 'cheese-input', 'cheese-plus'].forEach(id => {
+            updateDisplay(id, numberData[currentNumber][id]);
+        });
+    }
+
+    function focusInput(id) {
+        document.querySelectorAll('.calc-cell').forEach(el => el.classList.remove('focused'));
+        
+        let cellTargetId = '';
+        if (id === 'elbow-input-90') cellTargetId = 'cell-elbow-input';
+        else if (id === 'elbow-plus-90') cellTargetId = 'cell-elbow-plus';
+        else if (id === 'elbow-plus-input') cellTargetId = 'cell-elbow-plus-input';
+        else if (id === 'elbow-plus-extra') cellTargetId = 'cell-elbow-plus-extra';
+        else if (id === 'cheese-input') cellTargetId = 'cell-cheese-input';
+        else if (id === 'cheese-plus') cellTargetId = 'cell-cheese-plus';
+        
+        const target = document.getElementById(cellTargetId);
+        if (target) target.classList.add('focused');
+        
+        focusedInputId = id;
+        isOverwriteMode = true;
+    }
+
+    function pressKey(key) {
+        let val = numberData[currentNumber][focusedInputId] || '';
+
+        if (key === 'clear') {
+            val = '';
+            isOverwriteMode = false;
+        } else if (key === 'enter') {
+            return;
+        } else {
+            if (isOverwriteMode) { 
+                val = key; 
+                isOverwriteMode = false; 
+            } else { 
+                val = (val === '0') ? key : val + key; 
+            }
+        }
+        
+        numberData[currentNumber][focusedInputId] = val;
+        updateDisplay(focusedInputId, val);
+        recalcAll();
+        
+        try { localStorage.setItem(storageKeyData, JSON.stringify(numberData)); } catch(e) {}
+    }
+
+    function updateDisplay(id, val) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        const defaultPlaceholder = placeholders[id] || '0';
+        if (!val) {
+            el.innerText = defaultPlaceholder;
+            if (defaultPlaceholder !== '0') {
+                el.classList.add('placeholder');
+            } else {
+                el.classList.remove('placeholder');
+                el.innerText = '0';
+            }
+        } else {
+            el.innerText = formatNum(val);
+            el.classList.remove('placeholder');
+        }
+    }
+
+    function formatNum(num) {
+        if (!num && num !== 0) return "";
+        const parts = num.toString().split(".");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return parts.join(".");
+    }
+
+    function switchTab(tabId) {
+        currentTab = tabId;
+        try { localStorage.setItem(lastTabKey, tabId); } catch(e) {}
+        
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        const activeNav = document.getElementById(`nav-${tabId}`);
+        if (activeNav) activeNav.classList.add('active');
+        
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        document.body.className = `mode-${tabId}` + (isStandalone ? ' standalone' : '');
+
+        ['section-90', 'section-elbow-plus', 'section-cheese'].forEach(s => {
+            const el = document.getElementById(s);
+            if (el) el.classList.add('hidden');
+        });
+        
+        const currentSection = document.getElementById(`section-${tabId}`);
+        if (currentSection) currentSection.classList.remove('hidden');
+        
+        if (tabId === '90') focusInput('elbow-input-90');
+        else if (tabId === 'elbow-plus') focusInput('elbow-plus-input');
+        else focusInput('cheese-input');
+        
+        updateDisplaysForCurrentNumber();
+        recalcAll();
+        renderHistory();
+    }
+
+    // スワイプナビゲーション（左右ループ対応）
+    let startX = 0;
+    let startY = 0;
+    const swipeArea = document.getElementById('swipe-container');
+    swipeArea.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, {passive: true});
+
+    swipeArea.addEventListener('touchend', e => {
+        const diffX = e.changedTouches[0].clientX - startX;
+        const diffY = e.changedTouches[0].clientY - startY;
+        
+        if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+            const tabs = ['90', 'elbow-plus', 'cheese'];
+            const idx = tabs.indexOf(currentTab);
+            if (diffX > 0) {
+                switchTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+            } else if (diffX < 0) {
+                switchTab(tabs[(idx + 1) % tabs.length]);
+            }
+        }
+    }, {passive: true});
+
+    function recalcAll() {
+        elbowCalc();
+        elbowPlusCalc();
+        cheeseCalc();
+    }
+
+    function elbowCalc() {
+        const d = 40, e = 112;
+        const c = parseFloat(numberData[currentNumber]['elbow-input-90']);
+        const p = parseFloat(numberData[currentNumber]['elbow-plus-90']) || 0;
+        const resEl = document.getElementById('elbow-result-val');
+        
+        if (isNaN(c) || c === 0) { resEl.innerText = "---"; return; }
+        
+        let extraPlus = 0;
+        if (p > 0) extraPlus = 57;
+        
+        const actualCore = c + p + extraPlus;
+        let res = Math.round((actualCore - ((e * 2) - (d * 2))) * 10) / 10;
+        resEl.innerText = formatNum(res);
+    }
+
+    function elbowPlusCalc() {
+        const d = 40, e = 112;
+        const c = parseFloat(numberData[currentNumber]['elbow-plus-input']);
+        const p = parseFloat(numberData[currentNumber]['elbow-plus-extra']) || 0;
+        const resEl = document.getElementById('elbow-plus-result-val');
+        
+        if (isNaN(c) || c === 0) { resEl.innerText = "---"; return; }
+        
+        const actualCore = c + (p / 2);
+        let res = Math.round((actualCore - ((e * 2) - (d * 2))) * 10) / 10;
+        resEl.innerText = formatNum(res);
+    }
+
+    function cheeseCalc() {
+        const d = 15;
+        const c = parseFloat(numberData[currentNumber]['cheese-input']);
+        const p = parseFloat(numberData[currentNumber]['cheese-plus']) || 0;
+        const resEl = document.getElementById('cheese-result-val');
+        
+        if (isNaN(c) || c === 0) { resEl.innerText = "---"; return; }
+        
+        let res = Math.round(((c + p) - d) * 10) / 10;
+        resEl.innerText = formatNum(res);
+    }
+
+    function saveHistory() {
+        recalcAll();
+        
+        saveTabHistory('90', '芯-柱', 'elbow-input-90', 'elbow-result-val');
+        saveTabHistory('elbow-plus', '芯-柱', 'elbow-plus-input', 'elbow-plus-result-val');
+        saveTabHistory('cheese', 'ドレン下', 'cheese-input', 'cheese-result-val');
+        
+        const unlockedCount = histories.filter(h => !h.locked).length;
+        if (unlockedCount > 36) {
+            const unlocked = histories.filter(h => !h.locked);
+            const toRemove = unlocked.slice(0, unlockedCount - 36);
+            toRemove.forEach(r => {
+                const idx = histories.findIndex(x => x.id === r.id);
+                if (idx > -1) histories.splice(idx, 1);
+            });
+        }
+        
+        try { localStorage.setItem(storageKeyHist, JSON.stringify(histories)); } catch(e) {}
+        
+        renderHistory();
+        showToast("保存しました");
+        isOverwriteMode = true;
+    }
+
+    function saveTabHistory(tabMode, labelText, mainInputId, resultId) {
+        let c = numberData[currentNumber][mainInputId] || '';
+        let valStr = c ? formatNum(c) : ''; 
+        
+        let resText = '';
+        if (c && c !== '0') {
+            resText = document.getElementById(resultId).innerText;
+        }
+
+        const mainLabel = valStr ? `${labelText}:${valStr}` : labelText;
+
+        histories.push({
+            id: Date.now() + Math.random(),
+            mode: tabMode,
+            num: currentNumber,
+            inputStr: mainLabel,
+            result: resText,
+            locked: false
+        });
+    }
+
+    function toggleLock(id) {
+        const h = histories.find(x => x.id === id);
+        if (h) { 
+            h.locked = !h.locked; 
+            try { localStorage.setItem(storageKeyHist, JSON.stringify(histories)); } catch(e) {}
+            renderHistory(); 
+        }
+    }
+
+    function deleteHistoryItem(id) {
+        histories = histories.filter(h => h.id !== id);
+        try { localStorage.setItem(storageKeyHist, JSON.stringify(histories)); } catch(e) {}
+        renderHistory();
+        showToast("削除しました");
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('main-history-list');
+        if (!list) return;
+        
+        list.innerHTML = "";
+        const filtered = histories.filter(h => h.mode === currentTab).reverse();
+        if (!filtered.length) { 
+            list.innerHTML = '<div class="text-center py-8 text-zinc-800 text-xs font-bold">履歴なし</div>'; 
+            return; 
+        }
+        
+        filtered.forEach(h => {
+            const div = document.createElement('div');
+            div.className = `history-item ${h.locked ? 'is-locked' : ''}`;
+            div.innerHTML = `
+                <button onclick="toggleLock(${h.id})" class="p-2 ${h.locked ? 'text-orange-500' : 'text-zinc-600'}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </button>
+                <div class="flex-1">
+                    <div class="text-[15px] font-bold text-[var(--ios-silver)] mb-0.5">
+                        <span class="text-orange-500">${h.num}</span> / ${h.inputStr}
+                    </div>
+                    <div class="text-xl font-bold">${h.result || '&nbsp;'}</div>
+                </div>
+                ${!h.locked ? `
+                <button onclick="deleteHistoryItem(${h.id})" class="p-2 text-zinc-500">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+                ` : '<div class="p-2 w-[36px]"></div>'}
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function clearHistory() {
+        histories = histories.filter(h => h.locked || h.mode !== currentTab);
+        try { localStorage.setItem(storageKeyHist, JSON.stringify(histories)); } catch(e) {}
+        renderHistory();
+        showToast("履歴を削除しました");
+    }
+
+    function copyResult(id) { 
+        const el = document.getElementById(id);
+        if (el) copyRaw(el.innerText); 
+    }
+
+    function copyRaw(val) {
+        if (!val || val === "---" || val === "エラー") return;
+        const t = document.createElement('textarea');
+        t.value = val.replace(/,/g, '');
+        t.style.position = 'fixed';
+        t.style.top = '0';
+        t.style.left = '0';
+        t.style.opacity = '0';
+        t.style.pointerEvents = 'none';
+        document.body.appendChild(t); 
+        t.focus();
+        t.select(); 
+        try { document.execCommand('copy'); showToast("コピーしました"); } catch(e) {}
+        document.body.removeChild(t);
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        if (t) {
+            t.innerText = msg; t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 1000);
+        }
+    }
+
+    window.addEventListener('load', () => {
+        renderKeypad();
+        let lastTab = null;
+        try { lastTab = localStorage.getItem(lastTabKey); } catch(e) {}
+
+        if (lastTab && ['90', 'elbow-plus', 'cheese'].includes(lastTab)) {
+            switchTab(lastTab);
+        } else {
+            switchTab('90');
+        }
+
+        const splash = document.getElementById('boot-splash');
+        setTimeout(() => {
+            if (splash) splash.classList.add('hide');
+        }, 180);
+    });
+
+    // PWA & スタンドアローン制御
+    (function () {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+        const installBtn = document.getElementById('installBtn');
+        const iosTip = document.getElementById('iosInstallTip');
+        const closeIosTip = document.getElementById('closeIosTip');
+        const ua = window.navigator.userAgent || '';
+        const isIOS = /iPhone|iPad|iPod/i.test(ua);
+        let deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (!isStandalone && installBtn) installBtn.style.display = 'block';
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    try { await deferredPrompt.userChoice; } catch(e) {}
+                    deferredPrompt = null;
+                    installBtn.style.display = 'none';
+                    return;
+                }
+                if (isIOS && !isStandalone && iosTip) {
+                    iosTip.style.display = 'block';
+                }
+            });
+        }
+
+        if (closeIosTip && iosTip) {
+            closeIosTip.addEventListener('click', () => iosTip.style.display = 'none');
+        }
+
+        if (isIOS && !isStandalone && installBtn) {
+            installBtn.style.display = 'block';
+        }
+
+        window.addEventListener('appinstalled', () => {
+            if (installBtn) installBtn.style.display = 'none';
+        });
+    })();
+</script>
+
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+        .then(reg => reg.update())
+        .catch(err => console.warn('Service Worker registration failed:', err));
+    });
+  }
+</script>
 </body>
 </html>
